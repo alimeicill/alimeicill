@@ -12,6 +12,8 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@prisma/client": "^5.10.2",
+    "@swc/helpers": "^0.5.23",
     "@tanstack/react-query": "^5.101.0",
     "@tiptap/extension-placeholder": "^3.26.1",
     "@tiptap/pm": "^3.26.1",
@@ -19,6 +21,7 @@
     "@tiptap/starter-kit": "^3.26.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^11.0.8",
     "lucide-react": "^1.18.0",
     "next": "16.2.9",
     "next-auth": "^5.0.0-beta.31",
@@ -28,20 +31,18 @@
     "react-dom": "19.2.4",
     "react-hook-form": "^7.79.0",
     "recharts": "^3.8.1",
-    "zustand": "^5.0.14",
-    "zod": "^3.22.4",
     "sonner": "^1.4.0",
-    "framer-motion": "^11.0.8",
-    "@prisma/client": "^5.10.2"
+    "zod": "^3.22.4",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "prisma": "^5.10.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "prisma": "^5.10.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
