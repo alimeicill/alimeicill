@@ -1,0 +1,812 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------- Enums --------------------
+
+enum BuildingType {
+  APARTMENT
+  SITE
+  RESIDENCE
+  MALL
+  OFFICE
+  MIXED
+  VILLA
+  DORMITORY
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  SITE_MANAGER
+  BOARD_MEMBER
+  ACCOUNTANT
+  TECHNICAL_STAFF
+  SECURITY_STAFF
+  OWNER
+  TENANT_RESIDENT
+  GUARANTOR
+}
+
+enum PlanType {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum ApartmentType {
+  RESIDENTIAL
+  COMMERCIAL
+  STORAGE
+  OFFICE
+}
+
+enum ApartmentStatus {
+  OCCUPIED
+  EMPTY
+  FOR_RENT
+  FOR_SALE
+  RENOVATION
+  MORTGAGED
+}
+
+enum DueType {
+  MANAGEMENT
+  ADVANCE
+  HEATING
+  ELEVATOR
+  GARDEN
+  SECURITY
+  WATER
+  ELECTRICITY
+  INTERNET
+  GARBAGE
+  CLEANING
+  SPECIAL
+}
+
+enum DueStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  BANK_TRANSFER
+  CASH
+  QR
+  AUTO_PAYMENT
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum ExpenseCategory {
+  STAFF
+  TECHNICAL
+  CLEANING
+  GARDEN
+  SECURITY
+  INSURANCE
+  ENERGY
+  MANAGEMENT
+  INVESTMENT
+  OTHER
+}
+
+enum AnnouncementPriority {
+  NORMAL
+  IMPORTANT
+  URGENT
+}
+
+enum AnnouncementCategory {
+  GENERAL
+  MAINTENANCE
+  EVENT
+  MEETING
+  SECURITY
+  RULES
+}
+
+enum TargetType {
+  ALL
+  BLOCK
+  FLOOR
+  TYPE
+  CUSTOM
+}
+
+enum TicketCategory {
+  NOISE
+  CLEANING
+  TECHNICAL
+  SECURITY
+  NEIGHBOR
+  SUGGESTION
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_REVIEW
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum MaintenanceCategory {
+  ELECTRICAL
+  PLUMBING
+  ELEVATOR
+  HVAC
+  FIRE
+  CAMERA
+  LOCKSMITH
+  PAINT
+  FLOOR
+}
+
+enum MaintenanceType {
+  CORRECTIVE
+  PREVENTIVE
+  INSPECTION
+}
+
+enum MaintenanceStatus {
+  REPORTED
+  CONFIRMED
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  AWAITING_APPROVAL
+  CLOSED
+}
+
+enum MeetingType {
+  GENERAL_ASSEMBLY
+  BOARD
+  BLOCK
+  EXTRAORDINARY
+}
+
+enum MeetingStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum StaffType {
+  DOORMAN
+  CLEANER
+  SECURITY
+  TECHNICIAN
+  GARDENER
+  MANAGER_ASSISTANT
+}
+
+enum ContractType {
+  FULL_TIME
+  PART_TIME
+  SUBCONTRACTOR
+}
+
+enum DocumentCategory {
+  LEGAL
+  INSURANCE
+  CONTRACTS
+  PROJECTS
+  MEETING_MINUTES
+  BUDGET
+  TECHNICAL
+  CORRESPONDENCE
+}
+
+// -------------------- Models --------------------
+
+model Tenant {
+  id            String       @id @default(cuid())
+  name          String
+  slug          String       @unique
+  type          BuildingType
+  logo          String?
+  address       String?
+  city          String?
+  lat           Float?
+  lng           Float?
+  phone         String?
+  email         String?
+  taxNumber     String?
+  plan          PlanType     @default(FREE)
+  planExpiresAt DateTime?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  users         User[]
+  buildings     Building[]
+  blocks        Block[]
+  apartments    Apartment[]
+  residents     Resident[]
+  dues          Due[]
+  payments      Payment[]
+  expenses      Expense[]
+  announcements Announcement[]
+  tickets       Ticket[]
+  maintenances  Maintenance[]
+  meetings      Meeting[]
+  staff         Staff[]
+  visitors      Visitor[]
+  documents     Document[]
+  cariHesaplar  CariHesap[]
+  cariHareketler CariHareket[]
+  cariFaturalar CariFatura[]
+}
+
+model User {
+  id          String    @id @default(cuid())
+  tenantId    String?
+  email       String    @unique
+  name        String
+  phone       String?
+  avatar      String?
+  role        UserRole
+  isActive    Boolean   @default(true)
+  lastLoginAt DateTime?
+  language    String    @default("tr")
+  theme       String    @default("light")
+  notifEmail  Boolean   @default(true)
+  notifSMS    Boolean   @default(true)
+  notifPush   Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant     Tenant?         @relation(fields: [tenantId], references: [id])
+  apartments ApartmentUser[]
+}
+
+model Building {
+  id               String       @id @default(cuid())
+  tenantId         String
+  name             String
+  constructionYear Int?
+  floors           Int?
+  totalApartments  Int?
+  elevatorCount    Int?
+  parkingCapacity  Int?
+  hasPool          Boolean      @default(false)
+  hasGym           Boolean      @default(false)
+  hasPlayground    Boolean      @default(false)
+  hasSecurity      Boolean      @default(false)
+  hasGenerator     Boolean      @default(false)
+  photo            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  blocks Block[]
+}
+
+model Block {
+  id          String   @id @default(cuid())
+  tenantId    String
+  buildingId  String
+  name        String
+  floorCount  Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  building   Building    @relation(fields: [buildingId], references: [id])
+  apartments Apartment[]
+}
+
+model Apartment {
+  id               String          @id @default(cuid())
+  tenantId         String
+  blockId          String
+  number           String
+  floor            Int
+  type             ApartmentType
+  size             Float?
+  rooms            String?
+  shareRatio       Float?
+  landRegisterNo   String?
+  status           ApartmentStatus
+  hasBalcony       Boolean         @default(false)
+  hasTerrace       Boolean         @default(false)
+  hasGarden        Boolean         @default(false)
+  isDisabledAccess Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  block     Block           @relation(fields: [blockId], references: [id])
+  residents ApartmentUser[]
+  dues      Due[]
+  payments  Payment[]
+  tickets   Ticket[]
+  vehicles  Vehicle[]
+  pets      Pet[]
+  meetings  Meeting[]
+  maintenances Maintenance[]
+}
+
+model ApartmentUser {
+  id          String    @id @default(cuid())
+  userId      String
+  apartmentId String
+  isOwner     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id])
+  apartment Apartment @relation(fields: [apartmentId], references: [id])
+}
+
+model Resident {
+  id             String    @id @default(cuid())
+  tenantId       String
+  userId         String
+  nationalId     String?
+  birthDate      DateTime?
+  emergencyName  String?
+  emergencyPhone String?
+  occupation     String?
+  moveInDate     DateTime?
+  moveOutDate    DateTime?
+  iban           String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  familyMembers FamilyMember[]
+}
+
+model FamilyMember {
+  id         String  @id @default(cuid())
+  residentId String
+  name       String
+  age        Int?
+  relation   String?
+
+  resident Resident @relation(fields: [residentId], references: [id])
+}
+
+model Due {
+  id           String    @id @default(cuid())
+  tenantId     String
+  apartmentId  String
+  residentId   String?
+  type         DueType
+  period       String
+  amount       Float
+  taxRate      Float     @default(0)
+  dueDate      DateTime
+  status       DueStatus
+  paidAmount   Float     @default(0)
+  paidAt       DateTime?
+  lateInterest Float     @default(0)
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  apartment Apartment @relation(fields: [apartmentId], references: [id])
+  payments  Payment[]
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  tenantId      String
+  dueId         String?
+  apartmentId   String
+  amount        Float
+  method        PaymentMethod
+  status        PaymentStatus
+  receiptNo     String        @unique
+  transactionId String?
+  receiptUrl    String?
+  paidAt        DateTime
+  notes         String?
+  createdAt     DateTime      @default(now())
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  due       Due?      @relation(fields: [dueId], references: [id])
+  apartment Apartment @relation(fields: [apartmentId], references: [id])
+}
+
+model Expense {
+  id            String          @id @default(cuid())
+  tenantId      String
+  category      ExpenseCategory
+  subcategory   String?
+  amount        Float
+  taxRate       Float           @default(0)
+  supplierId    String?
+  invoiceNo     String?
+  invoiceDate   DateTime?
+  invoiceFile   String?
+  paymentMethod PaymentMethod?
+  paymentDate   DateTime?
+  description   String
+  isRecurring   Boolean         @default(false)
+  recurringDay  Int?
+  approvedBy    String?
+  createdBy     String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+model Announcement {
+  id          String               @id @default(cuid())
+  tenantId    String
+  title       String
+  content     String
+  priority    AnnouncementPriority
+  category    AnnouncementCategory
+  targetType  TargetType
+  targetIds   String[]
+  attachments String[]
+  publishAt   DateTime?
+  expiresAt   DateTime?
+  isPublished Boolean              @default(false)
+  createdBy   String
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  tenant Tenant             @relation(fields: [tenantId], references: [id])
+  reads  AnnouncementRead[]
+}
+
+model AnnouncementRead {
+  id             String   @id @default(cuid())
+  announcementId String
+  userId         String
+  readAt         DateTime @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id])
+}
+
+model Ticket {
+  id                String         @id @default(cuid())
+  tenantId          String
+  apartmentId       String?
+  createdBy         String
+  assignedTo        String?
+  category          TicketCategory
+  priority          TicketPriority
+  status            TicketStatus
+  title             String
+  description       String
+  attachments       String[]
+  resolvedAt        DateTime?
+  closedAt          DateTime?
+  satisfactionScore Int?
+  internalNotes     String?
+  slaDeadline       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  apartment Apartment?      @relation(fields: [apartmentId], references: [id])
+  comments  TicketComment[]
+}
+
+model TicketComment {
+  id         String   @id @default(cuid())
+  ticketId   String
+  authorId   String
+  authorName String
+  comment    String
+  createdAt  DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+}
+
+model Maintenance {
+  id            String              @id @default(cuid())
+  tenantId      String
+  apartmentId   String?
+  category      MaintenanceCategory
+  type          MaintenanceType
+  location      String
+  title         String
+  description   String?
+  status        MaintenanceStatus
+  assignedTo    String?
+  supplierId    String?
+  scheduledDate DateTime?
+  completedDate DateTime?
+  cost          Float?
+  beforePhotos  String[]
+  afterPhotos   String[]
+  documents     String[]
+  notes         String?
+  createdBy     String
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  apartment Apartment? @relation(fields: [apartmentId], references: [id])
+}
+
+model Meeting {
+  id          String        @id @default(cuid())
+  tenantId    String
+  apartmentId String?
+  type        MeetingType
+  title       String
+  description String?
+  location    String?
+  onlineLink  String?
+  scheduledAt DateTime
+  duration    Int?
+  agenda      Json
+  status      MeetingStatus
+  minutesPdf  String?
+  decisions   Json?
+  createdBy   String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id])
+  apartment Apartment?        @relation(fields: [apartmentId], references: [id])
+  attendees MeetingAttendee[]
+  votes     Vote[]
+}
+
+model MeetingAttendee {
+  id        String   @id @default(cuid())
+  meetingId String
+  userId    String
+  attended  Boolean  @default(false)
+
+  meeting Meeting @relation(fields: [meetingId], references: [id])
+}
+
+model Vote {
+  id        String   @id @default(cuid())
+  meetingId String
+  userId    String
+  choice    String
+  createdAt DateTime @default(now())
+
+  meeting Meeting @relation(fields: [meetingId], references: [id])
+}
+
+model Staff {
+  id             String       @id @default(cuid())
+  tenantId       String
+  userId         String
+  type           StaffType
+  contractType   ContractType
+  startDate      DateTime
+  endDate        DateTime?
+  salary         Float?
+  ssn            String?
+  certifications Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  shifts Shift[]
+  tasks  Task[]
+  leaves Leave[]
+}
+
+model Shift {
+  id        String   @id @default(cuid())
+  staffId   String
+  startTime DateTime
+  endTime   DateTime
+
+  staff Staff @relation(fields: [staffId], references: [id])
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  staffId     String
+  title       String
+  description String
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  staff Staff @relation(fields: [staffId], references: [id])
+}
+
+model Leave {
+  id         String   @id @default(cuid())
+  staffId    String
+  startDate  DateTime
+  endDate    DateTime
+  type       String
+  isApproved Boolean  @default(false)
+
+  staff Staff @relation(fields: [staffId], references: [id])
+}
+
+model Visitor {
+  id                String    @id @default(cuid())
+  tenantId          String
+  name              String
+  nationalId        String?
+  phone             String?
+  vehiclePlate      String?
+  visitingApartment String?
+  purpose           String?
+  entryAt           DateTime  @default(now())
+  exitAt            DateTime?
+  qrCode            String?
+  qrExpiresAt       DateTime?
+  photo             String?
+  registeredBy      String?
+  createdAt         DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+model Document {
+  id          String           @id @default(cuid())
+  tenantId    String
+  category    DocumentCategory
+  title       String
+  description String?
+  fileUrl     String
+  fileType    String
+  fileSize    Int
+  version     Int              @default(1)
+  expiresAt   DateTime?
+  isShared    Boolean          @default(false)
+  sharedWith  String[]
+  uploadedBy  String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id])
+  versions DocumentVersion[]
+}
+
+model DocumentVersion {
+  id         String   @id @default(cuid())
+  documentId String
+  version    Int
+  fileUrl    String
+  uploadedBy String
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id])
+}
+
+model Vehicle {
+  id          String   @id @default(cuid())
+  apartmentId String
+  plate       String
+  brand       String?
+  model       String?
+  color       String?
+  year        Int?
+  type        String
+  parkingSlot String?
+  createdAt   DateTime @default(now())
+
+  apartment Apartment @relation(fields: [apartmentId], references: [id])
+}
+
+model Pet {
+  id          String   @id @default(cuid())
+  apartmentId String
+  name        String
+  type        String
+  breed       String?
+  color       String?
+  age         Int?
+  photo       String?
+  rulesAgreed Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  apartment Apartment @relation(fields: [apartmentId], references: [id])
+}
+
+// -------------------- Cari Hesaplar & Hareketler --------------------
+
+enum CariType {
+  SUPPLIER
+  INSTITUTION
+  STAFF
+}
+
+enum CariMovementDirection {
+  DEBIT
+  CREDIT
+}
+
+model CariHesap {
+  id          String         @id @default(cuid())
+  tenantId    String
+  code        String
+  name        String
+  type        CariType
+  taxOffice   String?
+  taxNumber   String?
+  phone       String?
+  email       String?
+  address     String?
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id])
+  hareketler  CariHareket[]
+  faturalar   CariFatura[]
+
+  @@unique([tenantId, code])
+}
+
+model CariHareket {
+  id           String                @id @default(cuid())
+  tenantId     String
+  cariHesapId  String
+  cariFaturaId String?
+  date         DateTime              @default(now())
+  description  String
+  direction    CariMovementDirection
+  amount       Float
+  documentNo   String?
+  createdAt    DateTime              @default(now())
+
+  tenant       Tenant                @relation(fields: [tenantId], references: [id])
+  cariHesap    CariHesap             @relation(fields: [cariHesapId], references: [id], onDelete: Cascade)
+  cariFatura   CariFatura?           @relation(fields: [cariFaturaId], references: [id], onDelete: Cascade)
+}
+
+enum CariFaturaType {
+  FATURA
+  TAHAKKUK
+}
+
+model CariFatura {
+  id           String         @id @default(cuid())
+  tenantId     String
+  cariHesapId  String
+  invoiceNo    String
+  invoiceDate  DateTime
+  documentType CariFaturaType
+  netAmount    Float
+  taxAmount    Float
+  totalAmount  Float
+  description  String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  cariHesap    CariHesap      @relation(fields: [cariHesapId], references: [id], onDelete: Cascade)
+  hareketler   CariHareket[]
+}
+
+

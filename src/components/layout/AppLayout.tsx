@@ -3,18 +3,19 @@
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
+import { FeedbackWidget } from '@/components/layout/FeedbackWidget';
 import { useUIStore } from '@/stores/ui';
 import { cn } from '@/lib/utils';
 
-const authRoutes = ['/login', '/register', '/forgot-password'];
+const authRoutes = ['/giris', '/kayit', '/sifremi-unuttum', '/kurulum'];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { sidebarCollapsed } = useUIStore();
 
-  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
+  const isAuthOrLanding = pathname === '/' || authRoutes.some((route) => pathname.startsWith(route));
 
-  if (isAuthRoute) {
+  if (isAuthOrLanding) {
     return <>{children}</>;
   }
 
@@ -32,6 +33,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="animate-fade-in">{children}</div>
         </main>
       </div>
+      <FeedbackWidget />
     </div>
   );
 }

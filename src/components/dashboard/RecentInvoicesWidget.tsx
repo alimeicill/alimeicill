@@ -61,7 +61,7 @@ export function RecentInvoicesWidget() {
       </div>
       <div className="mt-4 flex justify-end">
         <Link 
-          href="/finance/invoices" 
+          href="/yonetici/aidat" 
           className="inline-flex items-center text-xs font-semibold text-primary-500 hover:text-primary-600 transition-colors duration-150"
         >
           Tüm Faturaları Gör

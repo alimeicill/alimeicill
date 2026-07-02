@@ -1,113 +1,86 @@
 'use client';
 
 import React from 'react';
-import { StatCard } from '@/components/dashboard/StatCard';
-import { FinancialSummaryWidget } from '@/components/dashboard/FinancialSummaryWidget';
-import { RecentInvoicesWidget } from '@/components/dashboard/RecentInvoicesWidget';
-import { TaskListWidget } from '@/components/dashboard/TaskListWidget';
-import { AnnouncementsWidget } from '@/components/dashboard/AnnouncementsWidget';
-import { OccupancyWidget } from '@/components/dashboard/OccupancyWidget';
-import { MeterChartWidget } from '@/components/dashboard/MeterChartWidget';
-import { mockDashboardStats } from '@/lib/mock-data';
-import { formatCurrency } from '@/lib/utils';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Percent, 
-  AlertTriangle 
-} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Building, ShieldCheck, User, Wrench, ShieldAlert, ArrowRight } from 'lucide-react';
 
-export default function DashboardPage() {
-  const stats = mockDashboardStats;
+export default function DashboardRouterPage() {
+  const router = useRouter();
+
+  const handleSelectRole = (path: string) => {
+    router.push(path);
+  };
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">
-          Kontrol Paneli
-        </h1>
-        <p className="text-sm text-[var(--text-secondary)] mt-1">
-          Yıldız Konakları Sitesi — Yönetim Özeti
-        </p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Toplam Gelir"
-          value={formatCurrency(stats.totalRevenue)}
-          subtitle="Bu yılki toplam aidat ve diğer gelirler"
-          icon={TrendingUp}
-          trend="up"
-          trendValue="%12.5 artış"
-          color="green"
-        />
-        <StatCard
-          title="Toplam Gider"
-          value={formatCurrency(stats.totalExpenses)}
-          subtitle="Bu yılki toplam fatura ve bakım giderleri"
-          icon={TrendingDown}
-          trend="down"
-          trendValue="%4.2 düşüş"
-          color="red"
-        />
-        <StatCard
-          title="Tahsilat Oranı"
-          value={`%${stats.collectionRate}`}
-          subtitle="Faturaların ödenme oranı"
-          icon={Percent}
-          trend="up"
-          trendValue="%3.1 artış"
-          color="blue"
-        />
-        <StatCard
-          title="Gecikmiş Faturalar"
-          value={stats.overdueInvoices}
-          subtitle="Ödeme tarihi geçmiş fatura sayısı"
-          icon={AlertTriangle}
-          trend="up"
-          trendValue="+2 yeni"
-          color="amber"
-        />
-      </div>
-
-      {/* Widgets Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Financial Summary */}
-        <div className="glass rounded-2xl border border-[var(--border-color)] p-6 shadow-md hover:shadow-lg transition-all duration-300">
-          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Finansal Özet</h3>
-          <FinancialSummaryWidget />
+    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4">
+      <div className="glass border border-[var(--border-color)] w-full max-w-xl rounded-3xl p-8 shadow-xl space-y-6 text-center animate-slide-up">
+        
+        {/* Header */}
+        <div className="space-y-2">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-tr from-primary-600 to-indigo-600 text-white font-bold">
+            <Building className="h-6 w-6" />
+          </div>
+          <h2 className="text-2xl font-bold text-[var(--text-primary)]">Hesap / Rol Seçimi</h2>
+          <p className="text-xs text-[var(--text-secondary)]">
+            Bağlı olduğunuz birden fazla apartman veya yetki seti tespit edildi. Devam etmek için birini seçin.
+          </p>
         </div>
 
-        {/* Occupancy Donut */}
-        <div className="glass rounded-2xl border border-[var(--border-color)] p-6 shadow-md hover:shadow-lg transition-all duration-300">
-          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Doluluk Oranı</h3>
-          <OccupancyWidget />
-        </div>
+        {/* Roles List */}
+        <div className="space-y-4">
+          {[
+            {
+              name: 'Yıldız Konakları Sitesi',
+              role: 'Site Yöneticisi',
+              icon: ShieldCheck,
+              path: '/yonetici/dashboard',
+              color: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/20 dark:text-indigo-400',
+            },
+            {
+              name: 'Yıldız Konakları Sitesi',
+              role: 'Daire Sakini (Blok A, Daire 12)',
+              icon: User,
+              path: '/sakin/dashboard',
+              color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-400',
+            },
+            {
+              name: 'Yıldız Konakları Sitesi',
+              role: 'Teknik Personel (Baş Teknisyen)',
+              icon: Wrench,
+              path: '/personel/dashboard',
+              color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400',
+            },
+            {
+              name: 'SaaS Platform Yönetimi',
+              role: 'Platform Sahibi (Super Admin)',
+              icon: ShieldAlert,
+              path: '/super-admin/dashboard',
+              color: 'text-purple-600 bg-purple-50 dark:bg-purple-950/20 dark:text-purple-400',
+            },
+          ].map((item, idx) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={idx}
+                onClick={() => handleSelectRole(item.path)}
+                className="w-full text-left p-4 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] hover:border-primary-500/30 hover:shadow-md transition-all duration-200 flex items-center justify-between group"
+              >
+                <div className="flex items-center space-x-3.5 min-w-0">
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.color}`}>
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <span className="block font-bold text-sm text-[var(--text-primary)] truncate">{item.name}</span>
+                    <span className="text-[10px] text-[var(--text-secondary)]">{item.role}</span>
+                  </div>
+                </div>
 
-        {/* Recent Invoices */}
-        <div className="glass rounded-2xl border border-[var(--border-color)] p-6 shadow-md hover:shadow-lg transition-all duration-300">
-          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Son Faturalar</h3>
-          <RecentInvoicesWidget />
-        </div>
-
-        {/* Active Tasks */}
-        <div className="glass rounded-2xl border border-[var(--border-color)] p-6 shadow-md hover:shadow-lg transition-all duration-300">
-          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Açık Görevler</h3>
-          <TaskListWidget />
-        </div>
-
-        {/* Announcements */}
-        <div className="glass rounded-2xl border border-[var(--border-color)] p-6 shadow-md hover:shadow-lg transition-all duration-300">
-          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Son Duyurular</h3>
-          <AnnouncementsWidget />
-        </div>
-
-        {/* Meter readings line chart */}
-        <div className="glass rounded-2xl border border-[var(--border-color)] p-6 shadow-md hover:shadow-lg transition-all duration-300">
-          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Sayaç Okumaları - Su Tüketimi</h3>
-          <MeterChartWidget />
+                <span className="p-1 rounded-lg bg-[var(--bg-tertiary)] group-hover:bg-primary-600 group-hover:text-white transition-all">
+                  <ArrowRight className="h-4 w-4" />
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

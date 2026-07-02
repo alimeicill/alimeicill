@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTheme } from 'next-themes';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Menu,
   Search,
@@ -16,20 +17,53 @@ import {
 import { cn, getInitials } from '@/lib/utils';
 import { useUIStore } from '@/stores/ui';
 
-const mockUser = {
-  name: 'Ahmet Yılmaz',
-  email: 'ahmet@siteyonetim.com',
-  role: 'Site Yöneticisi',
-};
+// Helper function to resolve dynamic user details based on active dashboard path
+function getHeaderUser(pathname: string) {
+  if (pathname.startsWith('/super-admin')) {
+    return {
+      name: 'Hakan Demir',
+      email: 'super@apartmanyonet.com',
+      role: 'SaaS Platform Sahibi',
+    };
+  }
+  if (pathname.startsWith('/sakin')) {
+    return {
+      name: 'Mehmet Kaya',
+      email: 'mehmet@yildiz.com',
+      role: 'Daire Sakini',
+    };
+  }
+  if (pathname.startsWith('/personel')) {
+    return {
+      name: 'Murat Usta',
+      email: 'murat.usta@yildiz.com',
+      role: 'Teknik Personel',
+    };
+  }
+  return {
+    name: 'Hasan Korkmaz',
+    email: 'hasan.korkmaz@yildiz.com',
+    role: 'Site Yöneticisi',
+  };
+}
 
 export function Header() {
   const { theme, setTheme } = useTheme();
   const { toggleSidebarCollapsed } = useUIStore();
+  const pathname = usePathname();
+  const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
+  const mockUser = getHeaderUser(pathname);
+
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  const handleLogout = () => {
+    setUserMenuOpen(false);
+    router.push('/giris');
   };
 
   return (
@@ -148,7 +182,10 @@ export function Header() {
                 </div>
 
                 <div className="border-t border-[var(--border-color)] pt-1.5">
-                  <button className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20">
+                  <button 
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
                     <LogOut className="h-4 w-4" />
                     Çıkış Yap
                   </button>

@@ -62,7 +62,7 @@ export function AnnouncementsWidget() {
       </div>
       <div className="mt-4 flex justify-end">
         <Link 
-          href="/documents" 
+          href="/yonetici/duyurular" 
           className="inline-flex items-center text-xs font-semibold text-primary-500 hover:text-primary-600 transition-colors duration-150"
         >
           Tüm Duyuruları Gör
