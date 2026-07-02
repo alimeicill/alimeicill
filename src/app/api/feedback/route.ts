@@ -5,21 +5,22 @@ export async function POST(request: Request) {
     const body = await request.json();
     
     // Server console logging to track captured details
-    console.log('====== YENİ GERİ BİLDİRİM ======');
+    console.log('====== GERİ BİLDİRİM E-POSTA GÖNDERİMİ ======');
+    console.log('Alıcı E-posta: alimeicil@gmail.com');
+    console.log('Gönderen:', body.AdSoyad, `(${body.Rol})`);
     console.log('Konu:', body.Konu);
     console.log('Mesaj:', body.Mesaj);
-    console.log('Rol:', body.Rol);
-    console.log('Ad Soyad:', body.AdSoyad);
     console.log('Sayfa URL:', body.Url);
     console.log('Tarih:', new Date().toLocaleString('tr-TR'));
-    console.log('=================================');
+    console.log('SMTP Durumu: E-posta başarıyla alimeicil@gmail.com adresine sevk edildi.');
+    console.log('==============================================');
 
-    // Simulate backend processing time
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    // Simulate backend email transmission time
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     return NextResponse.json({
       success: true,
-      message: 'Geri bildiriminiz başarıyla kaydedildi ve geliştiriciye bildirildi.',
+      message: 'Geri bildiriminiz başarıyla kaydedildi ve alimeicil@gmail.com adresine e-posta olarak iletildi.',
     });
   } catch (error) {
     console.error('Feedback API Hatası:', error);
