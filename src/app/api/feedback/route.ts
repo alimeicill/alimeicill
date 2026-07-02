@@ -5,13 +5,18 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // Configure nodemailer transporter with Gmail App Password
+    // Configure nodemailer transporter with Gmail SMTP and explicit port/timeout
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false, // false for TLS (port 587), true for SSL (port 465)
       auth: {
         user: 'alimeicil@gmail.com',
         pass: 'kvjyupqexigedeqg', // Gmail App Password
       },
+      connectionTimeout: 5000, // 5 seconds connection timeout
+      greetingTimeout: 5000,
+      socketTimeout: 8000,
     });
 
     const mailOptions = {
@@ -86,10 +91,10 @@ ${body.Mesaj}
       success: true,
       message: 'Geri bildiriminiz başarıyla alimeicil@gmail.com adresine iletildi.',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Feedback API Hatası:', error);
     return NextResponse.json(
-      { success: false, error: 'E-posta gönderimi sırasında sunucu tarafında bir hata oluştu.' },
+      { success: false, error: error.message || 'E-posta gönderimi sırasında bir hata oluştu.' },
       { status: 500 }
     );
   }
