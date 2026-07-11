@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
+import { toast } from 'sonner';
 import { 
   Building, 
   Palette, 
@@ -18,6 +19,20 @@ import {
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'notifications' | 'security'>('general');
+  const [accentColor, setAccentColor] = useState('indigo');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('site_accent_color') || 'indigo';
+    setAccentColor(saved);
+  }, []);
+
+  const handleAccentChange = (color: string) => {
+    setAccentColor(color);
+    localStorage.setItem('site_accent_color', color);
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new Event('accent-color-change'));
+    toast.success(`Vurgu rengi değiştirildi: ${color.toUpperCase()}`);
+  };
 
   // General settings state
   const [siteName, setSiteName] = useState('Yıldız Konakları Sitesi');
@@ -237,12 +252,32 @@ export default function SettingsPage() {
               <div className="space-y-3 pt-3">
                 <label className="text-xs font-semibold text-[var(--text-secondary)]">Vurgu Rengi</label>
                 <div className="flex items-center space-x-3">
-                  <span className="h-6 w-6 rounded-full bg-indigo-600 ring-2 ring-indigo-500/40 ring-offset-2 cursor-pointer" />
-                  <span className="h-6 w-6 rounded-full bg-emerald-600 opacity-60 cursor-not-allowed" />
-                  <span className="h-6 w-6 rounded-full bg-rose-600 opacity-60 cursor-not-allowed" />
-                  <span className="h-6 w-6 rounded-full bg-amber-600 opacity-60 cursor-not-allowed" />
+                  <button
+                    type="button"
+                    onClick={() => handleAccentChange('indigo')}
+                    className={`h-6 w-6 rounded-full bg-indigo-600 transition-all ${accentColor === 'indigo' ? 'ring-4 ring-indigo-500/40 ring-offset-2 scale-110' : 'hover:scale-105'}`}
+                    title="Varsayılan Mavi"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAccentChange('emerald')}
+                    className={`h-6 w-6 rounded-full bg-emerald-600 transition-all ${accentColor === 'emerald' ? 'ring-4 ring-emerald-500/40 ring-offset-2 scale-110' : 'hover:scale-105'}`}
+                    title="Yeşil"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAccentChange('rose')}
+                    className={`h-6 w-6 rounded-full bg-rose-600 transition-all ${accentColor === 'rose' ? 'ring-4 ring-rose-500/40 ring-offset-2 scale-110' : 'hover:scale-105'}`}
+                    title="Kırmızı"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAccentChange('amber')}
+                    className={`h-6 w-6 rounded-full bg-amber-600 transition-all ${accentColor === 'amber' ? 'ring-4 ring-amber-500/40 ring-offset-2 scale-110' : 'hover:scale-105'}`}
+                    title="Sarı"
+                  />
                 </div>
-                <span className="block text-[10px] text-[var(--text-tertiary)]">Diğer renk temaları sonraki aşamalarda aktif edilecektir.</span>
+                <span className="block text-[10px] text-[var(--text-tertiary)] font-semibold">Tıklanan renk teması tüm panele anında uygulanır.</span>
               </div>
             </div>
           )}
