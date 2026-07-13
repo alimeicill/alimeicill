@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { mockUnits } from '@/lib/mock-data';
+import { mockUnits, mockInvoices, mockUsers } from '@/lib/mock-data';
 import { getStatusColor } from '@/lib/utils';
 import { 
   Search, 
@@ -13,7 +13,14 @@ import {
   Briefcase, 
   Compass,
   User,
-  Percent
+  Percent,
+  Mail,
+  Phone,
+  FileText,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  Landmark
 } from 'lucide-react';
 import type { Unit, UnitStatus, UnitType } from '@/types';
 import { toast } from 'sonner';
@@ -21,6 +28,29 @@ import { toast } from 'sonner';
 export default function UnitsPage() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUnitForDetail, setSelectedUnitForDetail] = useState<Unit | null>(null);
+
+  // Helper: Retrieve contact info for unit owners/tenants
+  const getUserDetails = (name?: string) => {
+    if (!name) return null;
+    return mockUsers.find(u => u.name.toLowerCase() === name.toLowerCase()) || null;
+  };
+
+  // Helper: Calculate unit financials
+  const getUnitFinancials = (unitNumber: string) => {
+    const unitInvs = mockInvoices.filter(
+      inv => inv.unitNumber.toLowerCase() === unitNumber.toLowerCase()
+    );
+    const totalInvoiced = unitInvs.reduce((sum, inv) => sum + inv.totalAmount, 0);
+    const totalPaid = unitInvs.reduce((sum, inv) => sum + inv.paidAmount, 0);
+    const totalDebt = totalInvoiced - totalPaid;
+    return {
+      invoices: unitInvs,
+      totalInvoiced,
+      totalPaid,
+      totalDebt,
+    };
+  };
   const [blockFilter, setBlockFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -304,7 +334,7 @@ export default function UnitsPage() {
                 {/* Footer Buttons */}
                 <div className="mt-6 flex gap-2">
                   <button 
-                    onClick={() => alert(`Detaylar: ${unit.blockName} Blok Daire ${unit.number}`)}
+                    onClick={() => setSelectedUnitForDetail(unit)}
                     className="flex-1 text-center rounded-xl bg-[var(--bg-tertiary)] hover:bg-primary-500/10 hover:text-primary-500 py-2 text-xs font-bold text-[var(--text-secondary)] transition-all"
                   >
                     Detaylar
@@ -374,7 +404,13 @@ export default function UnitsPage() {
                           {getStatusLabel(unit.status)}
                         </span>
                       </td>
-                      <td className="p-4 text-right">
+                      <td className="p-4 text-right space-x-2">
+                        <button
+                          onClick={() => setSelectedUnitForDetail(unit)}
+                          className="rounded-lg border border-[var(--border-color)] hover:bg-primary-500/10 hover:text-primary-500 hover:border-primary-500 px-2.5 py-1 text-xs font-bold text-[var(--text-secondary)] transition-colors"
+                        >
+                          Detay
+                        </button>
                         <button
                           onClick={() => handleDeleteUnit(unit.id)}
                           className="rounded-lg border border-rose-200 dark:border-rose-900/50 hover:bg-rose-500 hover:text-white px-2.5 py-1 text-xs font-bold text-rose-500 transition-colors"
@@ -540,6 +576,196 @@ export default function UnitsPage() {
           </div>
         </div>
       )}
+
+      {/* Modal: Daire Detayları */}
+      {selectedUnitForDetail && (() => {
+        const unit = selectedUnitForDetail;
+        const ownerDetails = getUserDetails(unit.ownerName);
+        const tenantDetails = getUserDetails(unit.tenantName);
+        const financials = getUnitFinancials(unit.number);
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div className="glass w-full max-w-2xl rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] shadow-2xl animate-scale-in overflow-hidden">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-6 py-4 flex items-center justify-between text-white">
+                <div className="flex items-center space-x-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-md">
+                    <Building2 className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-bold">{unit.blockName} - {unit.number}</h3>
+                    <p className="text-xs text-white/80">Daire Detayları ve Finansal Durum</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedUnitForDetail(null)} 
+                  className="rounded-lg p-1.5 text-white/80 hover:bg-white/20 hover:text-white transition-colors"
+                >
+                  <span className="text-sm font-bold">Kapat</span>
+                </button>
+              </div>
+
+              {/* Content Grid */}
+              <div className="p-6 max-h-[75vh] overflow-y-auto space-y-6">
+                
+                {/* 1. Daire Genel Bilgileri */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="bg-[var(--bg-tertiary)]/50 rounded-xl p-3 border border-[var(--border-color)]/30">
+                    <span className="text-[10px] uppercase font-bold text-[var(--text-tertiary)] block mb-1">Daire Tipi</span>
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)]">
+                      {getTypeIcon(unit.type)}
+                      {getTypeLabel(unit.type)}
+                    </span>
+                  </div>
+
+                  <div className="bg-[var(--bg-tertiary)]/50 rounded-xl p-3 border border-[var(--border-color)]/30">
+                    <span className="text-[10px] uppercase font-bold text-[var(--text-tertiary)] block mb-1">Kat Bilgisi</span>
+                    <span className="text-xs font-bold text-[var(--text-primary)]">{unit.floor}. Kat</span>
+                  </div>
+
+                  <div className="bg-[var(--bg-tertiary)]/50 rounded-xl p-3 border border-[var(--border-color)]/30">
+                    <span className="text-[10px] uppercase font-bold text-[var(--text-tertiary)] block mb-1">Brüt Alan</span>
+                    <span className="text-xs font-bold text-[var(--text-primary)]">{unit.areaSqm} m²</span>
+                  </div>
+
+                  <div className="bg-[var(--bg-tertiary)]/50 rounded-xl p-3 border border-[var(--border-color)]/30">
+                    <span className="text-[10px] uppercase font-bold text-[var(--text-tertiary)] block mb-1">Arsa Payı</span>
+                    <span className="text-xs font-bold text-[var(--text-primary)]">{unit.ownershipShare}/100</span>
+                  </div>
+                </div>
+
+                {/* 2. Daire Durumu ve İlişkili Kişiler */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Tapu Sahibi */}
+                  <div className="border border-[var(--border-color)]/60 rounded-2xl p-4 bg-[var(--bg-tertiary)]/10 space-y-3">
+                    <h4 className="text-xs font-bold text-[var(--text-secondary)] border-b border-[var(--border-color)] pb-2 flex items-center gap-2">
+                      <User className="h-4 w-4 text-indigo-500" />
+                      <span>Kat Maliki (Ev Sahibi)</span>
+                    </h4>
+                    {unit.ownerName ? (
+                      <div className="space-y-2">
+                        <p className="text-sm font-bold text-[var(--text-primary)]">{unit.ownerName}</p>
+                        {ownerDetails ? (
+                          <div className="space-y-1 text-xs text-[var(--text-secondary)]">
+                            <p className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-[var(--text-tertiary)]" /> {ownerDetails.email}</p>
+                            <p className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-[var(--text-tertiary)]" /> {ownerDetails.phone}</p>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-[var(--text-tertiary)] italic">İletişim bilgisi bulunamadı.</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[var(--text-tertiary)] italic">Kat maliki tanımlanmamış.</p>
+                    )}
+                  </div>
+
+                  {/* Kiracı */}
+                  <div className="border border-[var(--border-color)]/60 rounded-2xl p-4 bg-[var(--bg-tertiary)]/10 space-y-3">
+                    <h4 className="text-xs font-bold text-[var(--text-secondary)] border-b border-[var(--border-color)] pb-2 flex items-center gap-2">
+                      <User className="h-4 w-4 text-indigo-500" />
+                      <span>Sakin (Kiracı) Bilgisi</span>
+                    </h4>
+                    {unit.tenantName ? (
+                      <div className="space-y-2">
+                        <p className="text-sm font-bold text-[var(--text-primary)]">{unit.tenantName}</p>
+                        {tenantDetails ? (
+                          <div className="space-y-1 text-xs text-[var(--text-secondary)]">
+                            <p className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-[var(--text-tertiary)]" /> {tenantDetails.email}</p>
+                            <p className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-[var(--text-tertiary)]" /> {tenantDetails.phone}</p>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-[var(--text-tertiary)] italic">İletişim bilgisi bulunamadı.</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-[var(--text-tertiary)] italic py-2">
+                        {unit.status === 'vacant' ? (
+                          <span className="text-emerald-500 font-semibold">Daire Boş</span>
+                        ) : (
+                          <span>Kiracı kaydı bulunamadı (Ev sahibi oturuyor olabilir).</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Finansal Durum & Aidat Borcu */}
+                <div className="border border-[var(--border-color)]/60 rounded-2xl p-4 bg-[var(--bg-tertiary)]/10 space-y-4">
+                  <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
+                    <h4 className="text-xs font-bold text-[var(--text-secondary)] flex items-center gap-2">
+                      <Landmark className="h-4 w-4 text-indigo-500" />
+                      <span>Aidat ve Finansal Durum</span>
+                    </h4>
+                    <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${financials.totalDebt > 0 ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                      {financials.totalDebt > 0 ? `Toplam Borç: ₺${financials.totalDebt.toLocaleString('tr-TR')}` : 'Borç Bulunmuyor'}
+                    </span>
+                  </div>
+
+                  {/* Financial Stats Grid */}
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="bg-[var(--bg-primary)] p-3 rounded-xl border border-[var(--border-color)]/50">
+                      <span className="text-[10px] text-[var(--text-tertiary)] font-bold block mb-1">Toplam Tahakkuk</span>
+                      <span className="text-xs font-bold text-[var(--text-primary)]">₺{financials.totalInvoiced.toLocaleString('tr-TR')}</span>
+                    </div>
+                    <div className="bg-[var(--bg-primary)] p-3 rounded-xl border border-[var(--border-color)]/50">
+                      <span className="text-[10px] text-[var(--text-tertiary)] font-bold block mb-1">Toplam Ödenen</span>
+                      <span className="text-xs font-bold text-emerald-500">₺{financials.totalPaid.toLocaleString('tr-TR')}</span>
+                    </div>
+                    <div className="bg-[var(--bg-primary)] p-3 rounded-xl border border-[var(--border-color)]/50">
+                      <span className="text-[10px] text-[var(--text-tertiary)] font-bold block mb-1">Kalan Bakiye (Borç)</span>
+                      <span className={`text-xs font-bold ${financials.totalDebt > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                        ₺{financials.totalDebt.toLocaleString('tr-TR')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Last Invoices List */}
+                  <div className="space-y-2 pt-2">
+                    <span className="text-[10px] uppercase font-bold text-[var(--text-tertiary)] block">Son Fatura Kayıtları</span>
+                    {financials.invoices.length === 0 ? (
+                      <p className="text-xs text-[var(--text-tertiary)] italic py-2">Daireye ait fatura kaydı bulunmamaktadır.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                        {financials.invoices.map((inv) => (
+                          <div key={inv.id} className="flex items-center justify-between text-xs p-2.5 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)]/30">
+                            <div className="space-y-0.5">
+                              <p className="font-bold text-[var(--text-primary)]">{inv.period} Aidat Ödemesi</p>
+                              <p className="text-[10px] text-[var(--text-tertiary)]">Son Ödeme: {inv.dueDate}</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-[var(--text-secondary)]">₺{inv.totalAmount.toLocaleString('tr-TR')}</span>
+                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                inv.status === 'paid' ? 'bg-emerald-500/10 text-emerald-500' :
+                                inv.status === 'overdue' ? 'bg-rose-500/10 text-rose-500' :
+                                'bg-amber-500/10 text-amber-500'
+                              }`}>
+                                {inv.status === 'paid' ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                                {inv.status === 'paid' ? 'Ödendi' : inv.status === 'overdue' ? 'Gecikti' : 'Bekliyor'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Footer */}
+              <div className="bg-[var(--bg-tertiary)]/30 px-6 py-4 border-t border-[var(--border-color)] flex justify-end">
+                <button
+                  onClick={() => setSelectedUnitForDetail(null)}
+                  className="rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-5 py-2.5 text-xs font-semibold text-white shadow-md hover:from-indigo-600 hover:to-indigo-700 transition-all"
+                >
+                  Kapat
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
