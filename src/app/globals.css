@@ -191,3 +191,57 @@ body {
   margin: 1rem 0;
   color: #64748b;
 }
+
+/* Print Styles: Hide sidebars, headers, widgets and action buttons to print only core content */
+@media print {
+  header,
+  aside,
+  footer,
+  .no-print,
+  .print-hidden,
+  button,
+  select,
+  input,
+  iframe,
+  .fixed,
+  /* Feedback Widget floating button container */
+  [title="Geri Bildirim Gönder"] {
+    display: none !important;
+  }
+
+  /* Reset layout margins and background colors for clean printing */
+  body,
+  html,
+  main {
+    background: white !important;
+    background-color: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Remove side margins caused by the sidebar space */
+  .flex.h-screen.overflow-hidden > div {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+  }
+
+  /* Ensure card designs print clearly without shadows */
+  .glass {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Ensure text colors are printable */
+  .text-\[var\(--text-primary\)\] {
+    color: #000000 !important;
+  }
+  .text-\[var\(--text-secondary\)\] {
+    color: #334155 !important;
+  }
+}
