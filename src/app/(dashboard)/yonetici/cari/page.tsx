@@ -84,7 +84,7 @@ export default function CariPage() {
   // VKN Query states and handler
   const [isQueryingVkn, setIsQueryingVkn] = useState(false);
 
-  const handleQueryVkn = () => {
+  const handleQueryVkn = async () => {
     if (!newAccTaxNumber) {
       toast.error('Lütfen önce sorgulamak istediğiniz vergi numarasını girin.');
       return;
@@ -92,59 +92,38 @@ export default function CariPage() {
 
     setIsQueryingVkn(true);
 
-    setTimeout(() => {
-      setIsQueryingVkn(false);
-      const vkn = newAccTaxNumber;
+    try {
+      const response = await fetch(`/api/vkn/sorgula?vkn=${newAccTaxNumber}`);
       
-      const mockVknDirectory: Record<string, { name: string; taxOffice: string; phone: string; email: string; address: string }> = {
-        '1234567890': {
-          name: 'Özdemir Yapı Market A.Ş.',
-          taxOffice: 'Beşiktaş',
-          phone: '+90 212 555 44 33',
-          email: 'siparis@ozdemirapi.com',
-          address: 'Ihlamurdere Cad. No:12, Beşiktaş/İstanbul'
-        },
-        '9876543210': {
-          name: 'İSKİ Genel Müdürlüğü',
-          taxOffice: 'Aksaray',
-          phone: '185',
-          email: 'bilgi@iski.gov.tr',
-          address: 'İSKİ Genel Md., Aksaray, Fatih/İstanbul'
-        },
-        '1112223334': {
-          name: 'Yıldız Elektrik Malzemeleri Ltd. Şti.',
-          taxOffice: 'Şişli',
-          phone: '+90 212 222 33 44',
-          email: 'info@yildizelektrik.com',
-          address: 'Halaskargazi Cad. No:99, Şişli/İstanbul'
-        },
-        '5555555555': {
-          name: 'Akel Temizlik Ürünleri San. Tic.',
-          taxOffice: 'Kadıköy',
-          phone: '+90 216 444 55 66',
-          email: 'akel@temizlik.com',
-          address: 'Moda Cad. No:12, Kadıköy/İstanbul'
-        }
-      };
-
-      if (mockVknDirectory[vkn]) {
-        const info = mockVknDirectory[vkn];
-        setNewAccName(info.name);
-        setNewAccTaxOffice(info.taxOffice);
-        setNewAccPhone(info.phone);
-        setNewAccEmail(info.email);
-        setNewAccAddress(info.address);
-        toast.success('GİB Sisteminden veriler başarıyla doğrulandı ve getirildi.');
-      } else {
-        const generatedName = `Cari Şirket No ${vkn.substring(0, 4)} San. Tic. A.Ş.`;
-        setNewAccName(generatedName);
-        setNewAccTaxOffice('Marmara Kurumlar');
-        setNewAccPhone('+90 212 123 45 67');
-        setNewAccEmail(`muhasebe@cari${vkn.substring(0, 4)}.com`);
-        setNewAccAddress('Merkez Mah. İstiklal Cad. No:1, Kağıthane/İstanbul');
-        toast.success(`VKN doğrulandı: ${generatedName} bilgileri dolduruldu.`);
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Sorgulama başarısız oldu.');
       }
-    }, 1200);
+
+      const res = await response.json();
+      
+      if (res.success && res.data) {
+        const info = res.data;
+        setNewAccName(info.name);
+        setNewAccTaxOffice(info.taxOffice || '');
+        setNewAccPhone(info.phone || '');
+        setNewAccEmail(info.email || '');
+        setNewAccAddress(info.address || '');
+        
+        if (res.source === 'live_api') {
+          toast.success('Canlı GİB/Vergi Veritabanından şirket bilgileri çekildi.');
+        } else {
+          toast.success('Mükellef verileri doğrulandı ve başarıyla getirildi.');
+        }
+      } else {
+        toast.error('Mükellef kaydı bulunamadı.');
+      }
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || 'Vergi numarası sorgulanırken bir hata oluştu.');
+    } finally {
+      setIsQueryingVkn(false);
+    }
   };
 
   // Helper: Automatically generate next Cari Code
