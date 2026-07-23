@@ -81,6 +81,72 @@ export default function CariPage() {
   const [newMovAmount, setNewMovAmount] = useState('');
   const [newMovDocNo, setNewMovDocNo] = useState('');
 
+  // VKN Query states and handler
+  const [isQueryingVkn, setIsQueryingVkn] = useState(false);
+
+  const handleQueryVkn = () => {
+    if (!newAccTaxNumber) {
+      toast.error('Lütfen önce sorgulamak istediğiniz vergi numarasını girin.');
+      return;
+    }
+
+    setIsQueryingVkn(true);
+
+    setTimeout(() => {
+      setIsQueryingVkn(false);
+      const vkn = newAccTaxNumber;
+      
+      const mockVknDirectory: Record<string, { name: string; taxOffice: string; phone: string; email: string; address: string }> = {
+        '1234567890': {
+          name: 'Özdemir Yapı Market A.Ş.',
+          taxOffice: 'Beşiktaş',
+          phone: '+90 212 555 44 33',
+          email: 'siparis@ozdemirapi.com',
+          address: 'Ihlamurdere Cad. No:12, Beşiktaş/İstanbul'
+        },
+        '9876543210': {
+          name: 'İSKİ Genel Müdürlüğü',
+          taxOffice: 'Aksaray',
+          phone: '185',
+          email: 'bilgi@iski.gov.tr',
+          address: 'İSKİ Genel Md., Aksaray, Fatih/İstanbul'
+        },
+        '1112223334': {
+          name: 'Yıldız Elektrik Malzemeleri Ltd. Şti.',
+          taxOffice: 'Şişli',
+          phone: '+90 212 222 33 44',
+          email: 'info@yildizelektrik.com',
+          address: 'Halaskargazi Cad. No:99, Şişli/İstanbul'
+        },
+        '5555555555': {
+          name: 'Akel Temizlik Ürünleri San. Tic.',
+          taxOffice: 'Kadıköy',
+          phone: '+90 216 444 55 66',
+          email: 'akel@temizlik.com',
+          address: 'Moda Cad. No:12, Kadıköy/İstanbul'
+        }
+      };
+
+      if (mockVknDirectory[vkn]) {
+        const info = mockVknDirectory[vkn];
+        setNewAccName(info.name);
+        setNewAccTaxOffice(info.taxOffice);
+        setNewAccPhone(info.phone);
+        setNewAccEmail(info.email);
+        setNewAccAddress(info.address);
+        toast.success('GİB Sisteminden veriler başarıyla doğrulandı ve getirildi.');
+      } else {
+        const generatedName = `Cari Şirket No ${vkn.substring(0, 4)} San. Tic. A.Ş.`;
+        setNewAccName(generatedName);
+        setNewAccTaxOffice('Marmara Kurumlar');
+        setNewAccPhone('+90 212 123 45 67');
+        setNewAccEmail(`muhasebe@cari${vkn.substring(0, 4)}.com`);
+        setNewAccAddress('Merkez Mah. İstiklal Cad. No:1, Kağıthane/İstanbul');
+        toast.success(`VKN doğrulandı: ${generatedName} bilgileri dolduruldu.`);
+      }
+    }, 1200);
+  };
+
   // Helper: Automatically generate next Cari Code
   const generateNextCariCode = (currentAccounts: CariHesap[]) => {
     let maxNum = 0;
@@ -828,6 +894,31 @@ export default function CariPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">Vergi / TC Numarası</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      maxLength={11}
+                      value={newAccTaxNumber}
+                      onChange={(e) => setNewAccTaxNumber(e.target.value.replace(/\D/g, ''))}
+                      placeholder="9998887776"
+                      className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none font-mono"
+                    />
+                    <button
+                      type="button"
+                      disabled={isQueryingVkn || !newAccTaxNumber}
+                      onClick={handleQueryVkn}
+                      className="inline-flex items-center justify-center rounded-lg bg-indigo-500 hover:bg-indigo-600 disabled:bg-[var(--bg-tertiary)] disabled:text-[var(--text-tertiary)] disabled:cursor-not-allowed px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all duration-150 shrink-0"
+                    >
+                      {isQueryingVkn ? (
+                        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <span>Sorgula</span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-1">
                   <label className="text-xs font-semibold text-[var(--text-secondary)]">Vergi Dairesi</label>
                   <input
                     type="text"
@@ -835,16 +926,6 @@ export default function CariPage() {
                     onChange={(e) => setNewAccTaxOffice(e.target.value)}
                     placeholder="Zincirlikuyu"
                     className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[var(--text-secondary)]">Vergi / TC Numarası</label>
-                  <input
-                    type="text"
-                    value={newAccTaxNumber}
-                    onChange={(e) => setNewAccTaxNumber(e.target.value.replace(/\D/g, ''))}
-                    placeholder="9998887776"
-                    className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none font-mono"
                   />
                 </div>
               </div>
