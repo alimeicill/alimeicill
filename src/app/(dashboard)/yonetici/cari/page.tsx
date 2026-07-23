@@ -81,6 +81,28 @@ export default function CariPage() {
   const [newMovAmount, setNewMovAmount] = useState('');
   const [newMovDocNo, setNewMovDocNo] = useState('');
 
+  // Helper: Automatically generate next Cari Code
+  const generateNextCariCode = (currentAccounts: CariHesap[]) => {
+    let maxNum = 0;
+    currentAccounts.forEach(acc => {
+      const match = acc.code.match(/^CAR-(\d+)$/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) {
+          maxNum = num;
+        }
+      }
+    });
+    return `CAR-${String(maxNum + 1).padStart(3, '0')}`;
+  };
+
+  // Automatically generate code on modal open
+  useEffect(() => {
+    if (showAddAccountModal) {
+      setNewAccCode(generateNextCariCode(accounts));
+    }
+  }, [showAddAccountModal, accounts]);
+
   // Load from localStorage or defaults
   useEffect(() => {
     const savedAccounts = localStorage.getItem('cari_accounts');
@@ -768,14 +790,13 @@ export default function CariPage() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[var(--text-secondary)]">Cari Kod *</label>
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">Cari Kod (Otomatik)</label>
                   <input
                     type="text"
-                    required
+                    readOnly
+                    disabled
                     value={newAccCode}
-                    onChange={(e) => setNewAccCode(e.target.value)}
-                    placeholder="CAR-004"
-                    className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                    className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-tertiary)]/50 px-3 py-2 text-xs font-bold text-[var(--text-primary)] font-mono cursor-not-allowed"
                   />
                 </div>
 
