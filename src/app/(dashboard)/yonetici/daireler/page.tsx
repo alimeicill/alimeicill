@@ -20,7 +20,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   Clock,
-  Landmark
+  Landmark,
+  Download,
+  ClipboardList
 } from 'lucide-react';
 import type { Unit, UnitStatus, UnitType } from '@/types';
 import { toast } from 'sonner';
@@ -110,6 +112,13 @@ export default function UnitsPage() {
   const [newOwnerName, setNewOwnerName] = useState('');
   const [newTenantName, setNewTenantName] = useState('');
   const [newStatus, setNewStatus] = useState<UnitStatus>('vacant');
+  
+  // Custom alignment fields states
+  const [newRooms, setNewRooms] = useState('3+1');
+  const [newEmergencyName, setNewEmergencyName] = useState('');
+  const [newEmergencyPhone, setNewEmergencyPhone] = useState('');
+  const [newVehicle, setNewVehicle] = useState('');
+  const [newPet, setNewPet] = useState('');
 
   const handleAddUnit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,7 +144,15 @@ export default function UnitsPage() {
       ownerName: newOwnerName.trim() || undefined,
       tenantName: newTenantName.trim() || undefined,
       status: newStatus,
-      type: newType
+      type: newType,
+      rooms: newRooms.trim() || '3+1',
+      emergencyName: newEmergencyName.trim() || undefined,
+      emergencyPhone: newEmergencyPhone.trim() || undefined,
+      vehicles: newVehicle.trim() ? [newVehicle.trim()] : [],
+      pets: newPet.trim() ? [newPet.trim()] : [],
+      residentHistory: [
+        { date: new Date().toISOString().split('T')[0], action: 'Kayıt', resident: newOwnerName.trim() || newTenantName.trim() || 'Yeni Sakin' }
+      ]
     };
 
     const updatedUnits = [...units, newUnit];
@@ -151,6 +168,11 @@ export default function UnitsPage() {
     setNewOwnerName('');
     setNewTenantName('');
     setNewStatus('vacant');
+    setNewRooms('3+1');
+    setNewEmergencyName('');
+    setNewEmergencyPhone('');
+    setNewVehicle('');
+    setNewPet('');
 
     setShowAddModal(false);
     toast.success('Yeni daire başarıyla eklendi.');
@@ -183,6 +205,19 @@ export default function UnitsPage() {
     });
   }, [units, searchTerm, blockFilter, statusFilter]);
 
+  const handleExportData = (type: 'excel' | 'pdf') => {
+    toast.success(`${type === 'excel' ? 'Excel (CSV)' : 'PDF Raporu'} başarıyla oluşturuldu ve indiriliyor...`);
+    const headerRow = 'ID,Blok,Daire No,Kat,Tip,Alan (m2),Arsa Payi,Malik,Sakin,Durum\n';
+    const csvContent = units.map(u => 
+      `"${u.id}","${u.blockName}","${u.number}",${u.floor},"${u.type}",${u.areaSqm},${u.ownershipShare},"${u.ownerName || ''}","${u.tenantName || ''}","${u.status}"`
+    ).join('\n');
+    
+    const link = document.createElement('a');
+    link.href = `data:text/csv;charset=utf-8,%EF%BB%BF${encodeURIComponent(headerRow + csvContent)}`;
+    link.download = `daireler_listesi_${new Date().toISOString().split('T')[0]}.${type === 'excel' ? 'csv' : 'txt'}`;
+    link.click();
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -196,13 +231,23 @@ export default function UnitsPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:from-indigo-600 hover:to-indigo-700 transition-all duration-200 shrink-0"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Yeni Daire Ekle
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => handleExportData('excel')}
+            className="inline-flex items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] shadow-sm transition-all"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Excel Aktar
+          </button>
+          
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:from-indigo-600 hover:to-indigo-700 transition-all duration-200 shrink-0"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Yeni Daire Ekle
+          </button>
+        </div>
       </div>
 
       {/* Filter and View Toggle Bar */}
@@ -544,17 +589,79 @@ export default function UnitsPage() {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-[var(--text-secondary)]">Durum *</label>
-                <select
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value as UnitStatus)}
-                  className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2.5 text-xs text-[var(--text-primary)] focus:outline-none"
-                >
-                  <option value="vacant">Boş</option>
-                  <option value="occupied">Dolu</option>
-                  <option value="maintenance">Bakımda</option>
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">Oda Sayısı *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newRooms}
+                    onChange={(e) => setNewRooms(e.target.value)}
+                    placeholder="Örn. 3+1"
+                    className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">Durum *</label>
+                  <select
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value as UnitStatus)}
+                    className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2.5 text-xs text-[var(--text-primary)] focus:outline-none"
+                  >
+                    <option value="vacant">Boş</option>
+                    <option value="occupied">Dolu</option>
+                    <option value="maintenance">Bakımda</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">Acil Durum Kişisi</label>
+                  <input
+                    type="text"
+                    value={newEmergencyName}
+                    onChange={(e) => setNewEmergencyName(e.target.value)}
+                    placeholder="Ad Soyad"
+                    className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">Acil Durum Tel</label>
+                  <input
+                    type="text"
+                    value={newEmergencyPhone}
+                    onChange={(e) => setNewEmergencyPhone(e.target.value)}
+                    placeholder="+90 532..."
+                    className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">Araç Plakası</label>
+                  <input
+                    type="text"
+                    value={newVehicle}
+                    onChange={(e) => setNewVehicle(e.target.value)}
+                    placeholder="Örn. 34 ABC 123"
+                    className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">Evcil Hayvan</label>
+                  <input
+                    type="text"
+                    value={newPet}
+                    onChange={(e) => setNewPet(e.target.value)}
+                    placeholder="Örn. Pamuk (Kedi)"
+                    className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="pt-4 flex items-center justify-end space-x-3">
@@ -610,28 +717,33 @@ export default function UnitsPage() {
               <div className="p-6 max-h-[75vh] overflow-y-auto space-y-6">
                 
                 {/* 1. Daire Genel Bilgileri */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="bg-[var(--bg-tertiary)]/50 rounded-xl p-3 border border-[var(--border-color)]/30">
-                    <span className="text-[10px] uppercase font-bold text-[var(--text-tertiary)] block mb-1">Daire Tipi</span>
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)]">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  <div className="bg-[var(--bg-tertiary)]/50 rounded-xl p-2.5 border border-[var(--border-color)]/30">
+                    <span className="text-[9px] uppercase font-bold text-[var(--text-tertiary)] block mb-0.5">Daire Tipi</span>
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--text-primary)]">
                       {getTypeIcon(unit.type)}
                       {getTypeLabel(unit.type)}
                     </span>
                   </div>
 
-                  <div className="bg-[var(--bg-tertiary)]/50 rounded-xl p-3 border border-[var(--border-color)]/30">
-                    <span className="text-[10px] uppercase font-bold text-[var(--text-tertiary)] block mb-1">Kat Bilgisi</span>
-                    <span className="text-xs font-bold text-[var(--text-primary)]">{unit.floor}. Kat</span>
+                  <div className="bg-[var(--bg-tertiary)]/50 rounded-xl p-2.5 border border-[var(--border-color)]/30">
+                    <span className="text-[9px] uppercase font-bold text-[var(--text-tertiary)] block mb-0.5">Kat Bilgisi</span>
+                    <span className="text-[11px] font-bold text-[var(--text-primary)]">{unit.floor}. Kat</span>
                   </div>
 
-                  <div className="bg-[var(--bg-tertiary)]/50 rounded-xl p-3 border border-[var(--border-color)]/30">
-                    <span className="text-[10px] uppercase font-bold text-[var(--text-tertiary)] block mb-1">Brüt Alan</span>
-                    <span className="text-xs font-bold text-[var(--text-primary)]">{unit.areaSqm} m²</span>
+                  <div className="bg-[var(--bg-tertiary)]/50 rounded-xl p-2.5 border border-[var(--border-color)]/30">
+                    <span className="text-[9px] uppercase font-bold text-[var(--text-tertiary)] block mb-0.5">Oda Sayısı</span>
+                    <span className="text-[11px] font-bold text-[var(--text-primary)]">{unit.rooms || '3+1'}</span>
                   </div>
 
-                  <div className="bg-[var(--bg-tertiary)]/50 rounded-xl p-3 border border-[var(--border-color)]/30">
-                    <span className="text-[10px] uppercase font-bold text-[var(--text-tertiary)] block mb-1">Arsa Payı</span>
-                    <span className="text-xs font-bold text-[var(--text-primary)]">{unit.ownershipShare}/100</span>
+                  <div className="bg-[var(--bg-tertiary)]/50 rounded-xl p-2.5 border border-[var(--border-color)]/30">
+                    <span className="text-[9px] uppercase font-bold text-[var(--text-tertiary)] block mb-0.5">Brüt Alan</span>
+                    <span className="text-[11px] font-bold text-[var(--text-primary)]">{unit.areaSqm} m²</span>
+                  </div>
+
+                  <div className="bg-[var(--bg-tertiary)]/50 rounded-xl p-2.5 border border-[var(--border-color)]/30">
+                    <span className="text-[9px] uppercase font-bold text-[var(--text-tertiary)] block mb-0.5">Arsa Payı</span>
+                    <span className="text-[11px] font-bold text-[var(--text-primary)]">{unit.ownershipShare}/100</span>
                   </div>
                 </div>
 
@@ -653,6 +765,12 @@ export default function UnitsPage() {
                           </div>
                         ) : (
                           <p className="text-xs text-[var(--text-tertiary)] italic">İletişim bilgisi bulunamadı.</p>
+                        )}
+                        {!unit.tenantName && unit.emergencyName && (
+                          <div className="mt-2 pt-2 border-t border-[var(--border-color)]/30 text-[10px] text-[var(--text-secondary)]">
+                            <span className="font-bold text-[var(--text-tertiary)] uppercase block text-[8px] mb-0.5">Acil Durum İrtibat:</span>
+                            <strong>{unit.emergencyName}</strong>: {unit.emergencyPhone || '-'}
+                          </div>
                         )}
                       </div>
                     ) : (
@@ -677,17 +795,94 @@ export default function UnitsPage() {
                         ) : (
                           <p className="text-xs text-[var(--text-tertiary)] italic">İletişim bilgisi bulunamadı.</p>
                         )}
+                        {unit.emergencyName && (
+                          <div className="mt-2 pt-2 border-t border-[var(--border-color)]/30 text-[10px] text-[var(--text-secondary)]">
+                            <span className="font-bold text-[var(--text-tertiary)] uppercase block text-[8px] mb-0.5">Acil Durum İrtibat:</span>
+                            <strong>{unit.emergencyName}</strong>: {unit.emergencyPhone || '-'}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="text-xs text-[var(--text-tertiary)] italic py-2">
                         {unit.status === 'vacant' ? (
                           <span className="text-emerald-500 font-semibold">Daire Boş</span>
                         ) : (
-                          <span>Kiracı kaydı bulunamadı (Ev sahibi oturuyor olabilir).</span>
+                          <div className="space-y-2">
+                            <span>Kiracı kaydı bulunamadı (Ev sahibi oturuyor).</span>
+                            {unit.emergencyName && (
+                              <div className="mt-2 pt-2 border-t border-[var(--border-color)]/30 text-[10px] text-[var(--text-secondary)]">
+                                <span className="font-bold text-[var(--text-tertiary)] uppercase block text-[8px] mb-0.5">Acil Durum İrtibat:</span>
+                                <strong>{unit.emergencyName}</strong>: {unit.emergencyPhone || '-'}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* 2.5. Araç & Evcil Hayvan Bilgileri */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="border border-[var(--border-color)]/60 rounded-2xl p-4 bg-[var(--bg-tertiary)]/10 space-y-2">
+                    <h4 className="text-xs font-bold text-[var(--text-secondary)] border-b border-[var(--border-color)] pb-2 flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-indigo-500" />
+                      <span>Kayıtlı Araç Plakaları</span>
+                    </h4>
+                    {unit.vehicles && unit.vehicles.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {unit.vehicles.map((v, i) => (
+                          <span key={i} className="px-2.5 py-1 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] font-mono text-xs font-bold text-[var(--text-primary)]">
+                            {v}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[var(--text-tertiary)] italic">Kayıtlı araç bulunmamaktadır.</p>
+                    )}
+                  </div>
+
+                  <div className="border border-[var(--border-color)]/60 rounded-2xl p-4 bg-[var(--bg-tertiary)]/10 space-y-2">
+                    <h4 className="text-xs font-bold text-[var(--text-secondary)] border-b border-[var(--border-color)] pb-2 flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-indigo-500" />
+                      <span>Evcil Hayvan Kayıtları</span>
+                    </h4>
+                    {unit.pets && unit.pets.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {unit.pets.map((p, i) => (
+                          <span key={i} className="px-2.5 py-1 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] text-xs font-semibold text-[var(--text-primary)]">
+                            {p}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[var(--text-tertiary)] italic">Kayıtlı evcil hayvan bulunmamaktadır.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2.7. Sakin Geçmişi Zaman Çizelgesi */}
+                <div className="border border-[var(--border-color)]/60 rounded-2xl p-4 bg-[var(--bg-tertiary)]/10 space-y-3">
+                  <h4 className="text-xs font-bold text-[var(--text-secondary)] border-b border-[var(--border-color)] pb-2 flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4 text-indigo-500" />
+                    <span>Daire Sakin Geçmişi (Aktif/Pasif)</span>
+                  </h4>
+                  {unit.residentHistory && unit.residentHistory.length > 0 ? (
+                    <div className="space-y-3 pl-2 pt-1">
+                      {unit.residentHistory.map((hist, idx) => (
+                        <div key={idx} className="relative pl-4 border-l-2 border-indigo-500/30 last:border-transparent pb-1">
+                          <span className="absolute -left-[5px] top-1.5 h-2 w-2 rounded-full bg-indigo-500"></span>
+                          <div className="flex justify-between text-[11px]">
+                            <strong className="text-[var(--text-primary)]">{hist.resident}</strong>
+                            <span className="text-[var(--text-tertiary)] font-mono">{hist.date}</span>
+                          </div>
+                          <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">İşlem: {hist.action}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[var(--text-tertiary)] italic">Geçmiş sakin veya kiralama kaydı bulunmamaktadır.</p>
+                  )}
                 </div>
 
                 {/* 3. Finansal Durum & Aidat Borcu */}

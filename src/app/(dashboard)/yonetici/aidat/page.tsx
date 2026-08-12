@@ -1,17 +1,33 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { mockInvoices, mockUnits } from '@/lib/mock-data';
 import { formatCurrency, formatPeriod, getStatusColor, formatDate } from '@/lib/utils';
-import { Search, Plus, Filter, ArrowLeft, Calendar, FileText, X } from 'lucide-react';
+import { Search, Plus, Filter, ArrowLeft, Calendar, FileText, X, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState(mockInvoices);
+  const [invoices, setInvoices] = useState<typeof mockInvoices>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState('all');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('invoices_list');
+    if (saved) {
+      setInvoices(JSON.parse(saved));
+    } else {
+      localStorage.setItem('invoices_list', JSON.stringify(mockInvoices));
+      setInvoices(mockInvoices);
+    }
+  }, []);
+
+  const saveInvoices = (newInvs: typeof mockInvoices) => {
+    setInvoices(newInvs);
+    localStorage.setItem('invoices_list', JSON.stringify(newInvs));
+    window.dispatchEvent(new Event('storage'));
+  };
 
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -20,6 +36,28 @@ export default function InvoicesPage() {
   const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState('2026-07-15');
   const [description, setDescription] = useState('Aidat');
+
+  // Advanced calculation method states
+  const [calcMethod, setCalcMethod] = useState<'fixed' | 'equal' | 'area' | 'share'>('fixed');
+
+  // Helper to calculate dynamic late interest (daily interest based on 5% monthly rate)
+  const calculateLateInterest = (inv: typeof mockInvoices[0]) => {
+    const remaining = inv.totalAmount - inv.paidAmount;
+    if (remaining <= 0 || inv.status === 'paid' || inv.status === 'cancelled') return 0;
+    
+    const dueTime = new Date(inv.dueDate).getTime();
+    const nowTime = new Date().getTime();
+    if (nowTime <= dueTime) return 0;
+
+    const daysOverdue = Math.floor((nowTime - dueTime) / (1000 * 60 * 60 * 24));
+    if (daysOverdue <= 0) return 0;
+
+    const monthlyInterestRate = 0.05; // 5% per month
+    const dailyInterestRate = monthlyInterestRate / 30; // 0.167% daily
+    
+    // Round to 2 decimals
+    return Math.round(remaining * dailyInterestRate * daysOverdue * 100) / 100;
+  };
 
   // Unique periods for filter
   const periods = useMemo(() => {
@@ -66,26 +104,52 @@ export default function InvoicesPage() {
     }
 
     if (selectedUnitId === 'all') {
-      const newInvoices = mockUnits.map((unit, index) => ({
-        id: `inv-${Date.now()}-${index}`,
-        tenantId: 'tenant-001',
-        unitId: unit.id,
-        unitNumber: unit.number,
-        ownerName: unit.tenantName || unit.ownerName || 'Bilinmeyen Sakin',
-        period,
-        totalAmount: Number(amount),
-        paidAmount: 0,
-        status: 'sent' as const,
-        dueDate,
-        createdAt: new Date().toISOString(),
-        items: []
-      }));
+      let totalShares = mockUnits.reduce((sum, u) => sum + (u.ownershipShare || 0), 0) || 100;
+      
+      const newInvoices = mockUnits.map((unit, index) => {
+        let calculatedAmount = Number(amount);
+        
+        if (calcMethod === 'equal') {
+          calculatedAmount = Number(amount) / mockUnits.length;
+        } else if (calcMethod === 'area') {
+          calculatedAmount = Number(amount) * (unit.areaSqm || 100);
+        } else if (calcMethod === 'share') {
+          calculatedAmount = (Number(amount) * (unit.ownershipShare || 5)) / totalShares;
+        }
 
-      setInvoices(prev => [...newInvoices, ...prev]);
-      toast.success(`${newInvoices.length} daire için toplu ${description} tahakkuku başarıyla oluşturuldu.`);
+        // Round to 2 decimals
+        calculatedAmount = Math.round(calculatedAmount * 100) / 100;
+
+        return {
+          id: `inv-${Date.now()}-${index}`,
+          tenantId: 'tenant-001',
+          unitId: unit.id,
+          unitNumber: unit.number,
+          ownerName: unit.tenantName || unit.ownerName || 'Bilinmeyen Sakin',
+          period,
+          totalAmount: calculatedAmount,
+          paidAmount: 0,
+          status: 'sent' as const,
+          dueDate,
+          createdAt: new Date().toISOString(),
+          items: [
+            {
+              id: `ii-${Math.random().toString(36).substring(7)}`,
+              description: `${description} (${calcMethod === 'equal' ? 'Eşit Dağıtılan' : calcMethod === 'area' ? 'm² Bazlı' : calcMethod === 'share' ? 'Arsa Paylı' : 'Sabit'})`,
+              amount: calculatedAmount,
+              type: 'charge' as const
+            }
+          ]
+        };
+      });
+
+      saveInvoices([...newInvoices, ...invoices]);
+      toast.success(`${newInvoices.length} daire için ${calcMethod === 'equal' ? 'Eşit Dağıtımlı' : calcMethod === 'area' ? 'm² Bazlı' : calcMethod === 'share' ? 'Arsa Payı Bazlı' : 'Toplu'} ${description} tahakkuku oluşturuldu.`);
     } else {
       const unit = mockUnits.find(u => u.id === selectedUnitId);
       if (!unit) return;
+
+      const calculatedAmount = Math.round(Number(amount) * 100) / 100;
 
       const newInvoice = {
         id: `inv-${Date.now()}`,
@@ -94,21 +158,42 @@ export default function InvoicesPage() {
         unitNumber: unit.number,
         ownerName: unit.tenantName || unit.ownerName || 'Bilinmeyen Sakin',
         period,
-        totalAmount: Number(amount),
+        totalAmount: calculatedAmount,
         paidAmount: 0,
         status: 'sent' as const,
         dueDate,
         createdAt: new Date().toISOString(),
-        items: []
+        items: [
+          {
+            id: `ii-${Math.random().toString(36).substring(7)}`,
+            description,
+            amount: calculatedAmount,
+            type: 'charge' as const
+          }
+        ]
       };
 
-      setInvoices(prev => [newInvoice, ...prev]);
-      toast.success(`${unit.number} dairesi için ${formatCurrency(Number(amount))} tutarında ${description} oluşturuldu.`);
+      saveInvoices([newInvoice, ...invoices]);
+      toast.success(`${unit.number} dairesi için ${formatCurrency(calculatedAmount)} tutarında ${description} oluşturuldu.`);
     }
-
     setIsAddModalOpen(false);
     setAmount('');
     setSelectedUnitId('all');
+  };
+
+  const handleExportData = () => {
+    toast.success('Aidat ve Borç raporu Excel (CSV) dosyası olarak indiriliyor...');
+    const headerRow = 'Belge No,Daire,Sakin,Dönem,Tutar,Ödenen,Kalan,Gecikme Faizi,Toplam Bakiye,Son Ödeme,Durum\n';
+    const csvContent = invoices.map(inv => {
+      const remaining = inv.totalAmount - inv.paidAmount;
+      const interest = calculateLateInterest(inv);
+      return `"${inv.id}","${inv.unitNumber}","${inv.ownerName}","${inv.period}",${inv.totalAmount},${inv.paidAmount},${remaining},${interest},${remaining + interest},"${inv.dueDate}","${inv.status}"`;
+    }).join('\n');
+    
+    const link = document.createElement('a');
+    link.href = `data:text/csv;charset=utf-8,%EF%BB%BF${encodeURIComponent(headerRow + csvContent)}`;
+    link.download = `aidat_borc_listesi_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
   };
 
   return (
@@ -133,13 +218,23 @@ export default function InvoicesPage() {
             </p>
           </div>
           
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:from-indigo-600 hover:to-indigo-700 transition-all duration-200 shrink-0"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Yeni Aidat / Borç
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportData}
+              className="inline-flex items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] px-4 py-2.5 text-sm font-semibold text-[var(--text-primary)] shadow-sm transition-all"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Excel Aktar
+            </button>
+
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:from-indigo-600 hover:to-indigo-700 transition-all duration-200 shrink-0"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Yeni Aidat / Borç
+            </button>
+          </div>
         </div>
       </div>
 
@@ -207,6 +302,8 @@ export default function InvoicesPage() {
                 <th className="p-4">Tutar</th>
                 <th className="p-4">Ödenen</th>
                 <th className="p-4">Kalan</th>
+                <th className="p-4">Gecikme Faizi (%5)</th>
+                <th className="p-4">Toplam Bakiye</th>
                 <th className="p-4">Son Ödeme</th>
                 <th className="p-4 text-center">Durum</th>
               </tr>
@@ -214,13 +311,14 @@ export default function InvoicesPage() {
             <tbody className="divide-y divide-[var(--border-color)] text-sm">
               {filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-sm text-[var(--text-tertiary)]">
+                  <td colSpan={13} className="py-12 text-center text-sm text-[var(--text-tertiary)]">
                     Kriterlere uygun aidat/borç kaydı bulunamadı.
                   </td>
                 </tr>
               ) : (
                 filteredInvoices.map((invoice) => {
                   const remaining = invoice.totalAmount - invoice.paidAmount;
+                  const interest = calculateLateInterest(invoice);
                   return (
                     <tr 
                       key={invoice.id} 
@@ -246,6 +344,12 @@ export default function InvoicesPage() {
                       </td>
                       <td className={`p-4 font-semibold ${remaining > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-[var(--text-secondary)]'}`}>
                         {formatCurrency(remaining)}
+                      </td>
+                      <td className="p-4 text-xs font-semibold text-rose-500 font-mono">
+                        {interest > 0 ? `+${formatCurrency(interest)}` : '₺0,00'}
+                      </td>
+                      <td className="p-4 font-bold text-[var(--text-primary)] font-mono">
+                        {formatCurrency(remaining + interest)}
                       </td>
                       <td className="p-4 text-xs text-[var(--text-secondary)]">
                         {formatDate(invoice.dueDate)}
@@ -359,10 +463,32 @@ export default function InvoicesPage() {
                 </select>
               </div>
 
+              {/* Borçlandırma Yöntemi (Sadece toplu borçlandırmada aktif) */}
+              {selectedUnitId === 'all' && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">Borçlandırma Yöntemi</label>
+                  <select
+                    value={calcMethod}
+                    onChange={(e) => setCalcMethod(e.target.value as any)}
+                    className="block w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="fixed">Sabit Tutar (Daire Başı Sabit)</option>
+                    <option value="equal">Eşit Dağıtım (Toplam Tutar / Daire)</option>
+                    <option value="area">m² Bazlı Dağıtım (Birim Fiyat * m²)</option>
+                    <option value="share">Arsa Payı Bazlı (Toplam Tutar * Arsa Payı Raporu)</option>
+                  </select>
+                </div>
+              )}
+
               {/* Tutar & Dönem */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-[var(--text-secondary)]">Tutar (TL)</label>
+                  <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                    {selectedUnitId === 'all' 
+                      ? (calcMethod === 'fixed' ? 'Daire Başı Tutar (TL)' : calcMethod === 'area' ? 'm² Birim Fiyat (TL)' : 'Dağıtılacak Toplam (TL)')
+                      : 'Tutar (TL)'
+                    }
+                  </label>
                   <input
                     type="number"
                     required

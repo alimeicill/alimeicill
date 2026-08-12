@@ -56,6 +56,12 @@ export interface Unit {
   tenantName?: string;
   status: UnitStatus;
   type: UnitType;
+  rooms?: string;
+  emergencyName?: string;
+  emergencyPhone?: string;
+  vehicles?: string[];
+  pets?: string[];
+  residentHistory?: { date: string; action: string; resident: string }[];
 }
 
 // -------------------- Invoice (Fatura) --------------------

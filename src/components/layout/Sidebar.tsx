@@ -20,7 +20,9 @@ import {
   Landmark,
   BarChart3,
   ArrowRightLeft,
-  ChevronDown
+  ChevronDown,
+  Gauge,
+  ClipboardList
 } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
 import { useUIStore } from '@/stores/ui';
@@ -92,6 +94,7 @@ function getRoleConfig(pathname: string | null) {
       { href: '/yonetici/dashboard', label: 'Kontrol Paneli', icon: LayoutDashboard },
       { href: '/yonetici/daireler', label: 'Daireler', icon: Building2 },
       { href: '/yonetici/sakinler', label: 'Sakinler', icon: Users },
+      { href: '/yonetici/sayaclar', label: 'Sayaç Okumaları', icon: Gauge },
       { 
         label: 'Finansal İşlemler', 
         icon: Landmark, 
@@ -107,6 +110,7 @@ function getRoleConfig(pathname: string | null) {
         ]
       },
       { href: '/yonetici/duyurular', label: 'Duyurular', icon: FileText },
+      { href: '/yonetici/anketler', label: 'Anket & Oylamalar', icon: ClipboardList },
       { href: '/yonetici/sms', label: 'SMS Yönetimi', icon: MessageSquare },
       { href: '/yonetici/arizalar', label: 'Arızalar & Görevler', icon: ListTodo },
       { href: '/yonetici/ayarlar', label: 'Ayarlar', icon: Settings },

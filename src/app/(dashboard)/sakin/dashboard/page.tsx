@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { AnnouncementsWidget } from '@/components/dashboard/AnnouncementsWidget';
 import { formatCurrency } from '@/lib/utils';
-import { Wallet, Megaphone, ShieldCheck, ListTodo, Plus, Info, CreditCard, Send } from 'lucide-react';
+import { Wallet, Megaphone, ShieldCheck, ListTodo, Plus, Info, CreditCard, Send, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SakinDashboardPage() {
@@ -17,6 +17,8 @@ export default function SakinDashboardPage() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [newTicketTitle, setNewTicketTitle] = useState('');
   const [newTicketCategory, setNewTicketCategory] = useState('technical');
+  
+  const [polls, setPolls] = useState<any[]>([]);
 
   const loadData = () => {
     // Unpaid Dues
@@ -78,6 +80,30 @@ export default function SakinDashboardPage() {
       localStorage.setItem('sakin_talepleri', JSON.stringify(defaultTickets));
       setTickets(defaultTickets);
     }
+
+    // Load active polls
+    const savedPolls = localStorage.getItem('site_anketler');
+    if (savedPolls) {
+      setPolls(JSON.parse(savedPolls).filter((p: any) => p.status === 'active'));
+    } else {
+      const defaultPolls = [
+        {
+          id: 'poll-1',
+          title: 'Dış Cephe Boya Seçimi',
+          question: 'A ve B blok dış cephe mantolama sonrası hangi ana renk tonu uygulansın?',
+          options: [
+            { id: 'opt-1-1', text: 'Kül Grisi & Antrasit Detaylar', votes: 14 },
+            { id: 'opt-1-2', text: 'Krem Rengi & Taba Detaylar', votes: 8 },
+            { id: 'opt-1-3', text: 'Kum Beji & Beyaz Detaylar', votes: 19 }
+          ],
+          dueDate: '2026-08-30',
+          status: 'active',
+          createdAt: '2026-07-15'
+        }
+      ];
+      localStorage.setItem('site_anketler', JSON.stringify(defaultPolls));
+      setPolls(defaultPolls);
+    }
   };
 
   useEffect(() => {
@@ -113,6 +139,30 @@ export default function SakinDashboardPage() {
     
     setNewTicketTitle('');
     toast.success('Talep yönetime başarıyla iletildi.');
+  };
+
+  const handleVotePoll = (pollId: string, optionId: string) => {
+    const saved = localStorage.getItem('site_anketler');
+    if (!saved) return;
+    const allPolls = JSON.parse(saved);
+    const updated = allPolls.map((p: any) => {
+      if (p.id === pollId) {
+        return {
+          ...p,
+          options: p.options.map((o: any) => o.id === optionId ? { ...o, votes: o.votes + 1 } : o)
+        };
+      }
+      return p;
+    });
+    localStorage.setItem('site_anketler', JSON.stringify(updated));
+    setPolls(updated.filter((p: any) => p.status === 'active'));
+    
+    // Save voted state to session storage
+    const votedList = JSON.parse(sessionStorage.getItem('voted_polls') || '[]');
+    sessionStorage.setItem('voted_polls', JSON.stringify([...votedList, pollId]));
+
+    toast.success('Oyunuz başarıyla kaydedildi. Katılımınız için teşekkür ederiz!');
+    window.dispatchEvent(new Event('storage'));
   };
 
   const categoryLabels: Record<string, string> = {
@@ -221,6 +271,74 @@ export default function SakinDashboardPage() {
             <span>Duyurular</span>
           </h3>
           <AnnouncementsWidget />
+        </div>
+
+        {/* Surveys and Polls widget */}
+        <div className="glass rounded-2xl border border-[var(--border-color)] p-6 shadow-md bg-[var(--bg-secondary)]">
+          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+            <ListTodo className="h-5 w-5 text-indigo-500" />
+            <span>Aktif Anketler & Karar Oylamaları</span>
+          </h3>
+
+          <div className="space-y-4">
+            {polls.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-[var(--border-color)] p-8 text-center text-xs text-[var(--text-tertiary)] bg-[var(--bg-primary)]">
+                Şu an katılabileceğiniz aktif bir oylama bulunmamaktadır.
+              </div>
+            ) : (
+              polls.map((poll) => {
+                let votedList = [];
+                if (typeof window !== 'undefined') {
+                  votedList = JSON.parse(sessionStorage.getItem('voted_polls') || '[]');
+                }
+                const isVoted = votedList.includes(poll.id);
+                const totalVotes = poll.options.reduce((sum: number, o: any) => sum + o.votes, 0) || 1;
+                return (
+                  <div key={poll.id} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-4 space-y-3 shadow-sm">
+                    <div>
+                      <h4 className="text-xs font-bold text-[var(--text-primary)]">{poll.title}</h4>
+                      <p className="text-[10px] text-[var(--text-secondary)] mt-1">{poll.question}</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      {poll.options.map((opt: any) => {
+                        const pct = Math.round((opt.votes / totalVotes) * 100);
+                        return (
+                          <div key={opt.id} className="relative">
+                            {isVoted ? (
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[10px] font-semibold">
+                                  <span>{opt.text}</span>
+                                  <span className="text-[var(--text-secondary)]">{pct}%</span>
+                                </div>
+                                <div className="w-full h-1.5 rounded-full bg-[var(--bg-secondary)] overflow-hidden">
+                                  <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleVotePoll(poll.id, opt.id)}
+                                className="w-full text-left px-3 py-1.5 rounded-lg border border-[var(--border-color)] hover:border-indigo-500 hover:bg-indigo-500/5 transition-all text-[11px] font-medium text-[var(--text-primary)]"
+                              >
+                                {opt.text}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {isVoted && (
+                      <p className="text-[9px] text-emerald-500 font-semibold italic flex items-center gap-1">
+                        <Check className="h-3 w-3" />
+                        Oyunuz kaydedildi. Toplam Katılım: {totalVotes} Sakin
+                      </p>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
 
         {/* Ticket Raising / Support system */}
