@@ -22,7 +22,8 @@ import {
   ArrowRightLeft,
   ChevronDown,
   Gauge,
-  ClipboardList
+  ClipboardList,
+  Sparkles
 } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
 import { useUIStore } from '@/stores/ui';
@@ -92,6 +93,7 @@ function getRoleConfig(pathname: string | null) {
     userEmail: 'hasan.korkmaz@yildiz.com',
     navItems: [
       { href: '/yonetici/dashboard', label: 'Kontrol Paneli', icon: LayoutDashboard },
+      { href: '/yonetici/site-hesabim', label: 'SiteHesabım Görünümü', icon: Sparkles },
       { href: '/yonetici/daireler', label: 'Daireler', icon: Building2 },
       { href: '/yonetici/sakinler', label: 'Sakinler', icon: Users },
       { href: '/yonetici/sayaclar', label: 'Sayaç Okumaları', icon: Gauge },
