@@ -263,6 +263,7 @@ model Tenant {
   cariHesaplar  CariHesap[]
   cariHareketler CariHareket[]
   cariFaturalar CariFatura[]
+  bankMovements BankMovement[]
 }
 
 model User {
@@ -808,5 +809,44 @@ model CariFatura {
   cariHesap    CariHesap      @relation(fields: [cariHesapId], references: [id], onDelete: Cascade)
   hareketler   CariHareket[]
 }
+
+enum BankMovementClassification {
+  MEMBER_COLLECTION
+  EXTERNAL_COLLECTION
+  EXPENSE_PAYMENT
+  VENDOR_PAYMENT
+  STAFF_PAYMENT
+  TRANSFER
+}
+
+enum BankMovementStatus {
+  UNMATCHED
+  MATCHED_AUTO
+  MATCHED_MANUAL
+  ROLLBACKED
+}
+
+model BankMovement {
+  id               String                     @id @default(cuid())
+  tenantId         String
+  transactionRef   String                     @unique
+  transactionDate  DateTime
+  amount           Float
+  description      String
+  senderName       String?
+  classification   BankMovementClassification @default(MEMBER_COLLECTION)
+  status           BankMovementStatus         @default(UNMATCHED)
+  matchedResidentId String?
+  matchedApartmentId String?
+  matchedDueId     String?
+  confidenceScore  Float?
+  matchedBy        String?
+  matchedAt        DateTime?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  tenant           Tenant                     @relation(fields: [tenantId], references: [id])
+}
+
 
 
