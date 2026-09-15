@@ -104,6 +104,7 @@ function getRoleConfig(pathname: string | null) {
           { href: '/yonetici/gelir-gider', label: 'Gelir & Gider' },
           { href: '/yonetici/kasa-banka', label: 'Kasa & Banka' },
           { href: '/yonetici/banka-sync', label: 'Banka Entegrasyon' },
+          { href: '/yonetici/finans-gelismis', label: 'Resmi Muhasebe & Finans' },
           { href: '/yonetici/raporlar', label: 'Raporlar' },
           { href: '/yonetici/cari', label: 'Cari Hesaplar' },
           { href: '/yonetici/cari/faturalar', label: 'Cari Faturaları' },
