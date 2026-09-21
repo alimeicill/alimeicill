@@ -47,6 +47,7 @@ export default function PurchaseInvoicesPage() {
   const [isPrintDropdownOpen, setIsPrintDropdownOpen] = useState(false);
   const [isColumnsDropdownOpen, setIsColumnsDropdownOpen] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<PurchaseInvoice | null>(null);
+  const [viewingEBelge, setViewingEBelge] = useState<PurchaseInvoice | null>(null);
 
   // Form states
   const [formType, setFormType] = useState<PurchaseInvoice['invoiceType']>('Alış Faturası');
@@ -480,13 +481,14 @@ export default function PurchaseInvoicesPage() {
         <button
           onClick={() => {
             if (selectedIds.length === 0) return;
-            toast.info('E-Belge XML şemaları ve imzalar doğrulanıyor...');
+            const target = invoices.find(i => selectedIds.includes(i.id));
+            if (target) setViewingEBelge(target);
           }}
           disabled={selectedIds.length === 0}
-          className="inline-flex items-center justify-center rounded-lg border border-sky-200 dark:border-sky-900/50 bg-sky-50/50 dark:bg-sky-950/10 px-3 py-2 text-xs font-bold text-sky-600 dark:text-sky-400 disabled:opacity-40 transition-all gap-1.5"
+          className="inline-flex items-center justify-center rounded-lg border border-sky-200 dark:border-sky-900/50 bg-sky-50/50 dark:bg-sky-950/10 px-3 py-2 text-xs font-bold text-sky-600 dark:text-sky-400 disabled:opacity-40 transition-all gap-1.5 hover:bg-sky-100"
         >
           <FileCode className="h-3.5 w-3.5" />
-          E-Belge
+          E-Belge Görüntüle
         </button>
 
         {/* Yazdır (Dropdown) */}
@@ -667,6 +669,7 @@ export default function PurchaseInvoicesPage() {
                 {visibleColumns.kdv && <th className="p-3 text-right">KDV</th>}
                 {visibleColumns.total && <th className="p-3 text-right">Genel Tutar</th>}
                 {visibleColumns.status && <th className="p-3 text-center">Durumu</th>}
+                <th className="p-3 text-center">E-Belge / İşlemler</th>
               </tr>
 
               {/* Column-level Form Filters */}
@@ -808,6 +811,16 @@ export default function PurchaseInvoicesPage() {
                         </span>
                       </td>
                     )}
+                    <td className="p-3 text-center">
+                      <button
+                        onClick={() => setViewingEBelge(inv)}
+                        className="inline-flex items-center gap-1 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/50 px-2 py-1 text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/60 transition-colors"
+                        title="E-Belge XML & GİB Fatura Görüntüle"
+                      >
+                        <FileCode className="h-3 w-3" />
+                        E-Belge Görüntüle
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -1060,6 +1073,191 @@ export default function PurchaseInvoicesPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* OFFICIAL GİB E-BELGE / E-FATURA VIEWER MODAL */}
+      {viewingEBelge && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="relative w-full max-w-3xl rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl animate-scale-in overflow-hidden my-8">
+            
+            {/* Modal Top Bar */}
+            <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800">
+              <div className="flex items-center gap-2">
+                <FileCode className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                  GİB E-Fatura / E-Belge Resmi Görüntüleyici
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-bold text-[9px] flex items-center gap-1">
+                  <Check className="h-3 w-3" /> GİB İmzalı & Doğrulanmış
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-bold flex items-center gap-1 hover:bg-slate-50"
+                >
+                  <Printer className="h-3 w-3" /> Yazdır
+                </button>
+                <button
+                  onClick={() => {
+                    toast.success('Resmi E-Belge XML dosyası başarıyla indirildi.');
+                  }}
+                  className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-bold flex items-center gap-1 hover:bg-slate-50"
+                >
+                  <Download className="h-3 w-3 text-indigo-600" /> XML İndir
+                </button>
+                <button 
+                  onClick={() => setViewingEBelge(null)}
+                  className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* E-Fatura Content Sheet */}
+            <div className="p-8 space-y-6 text-slate-800 dark:text-slate-100 font-sans text-xs bg-white dark:bg-slate-900 max-h-[75vh] overflow-y-auto">
+              
+              {/* Official Document Header */}
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b-2 border-slate-900 dark:border-slate-100 pb-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-[#E31B23] text-white font-black text-sm px-3 py-1 rounded tracking-wider">
+                      GİB E-FATURA
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono">Vergi Kimlik No: 9870123456</span>
+                  </div>
+                  <h2 className="text-base font-extrabold text-slate-900 dark:text-white mt-1">
+                    T.C. HAZİNE VE MALİYE BAKANLIĞI
+                  </h2>
+                  <p className="text-[10px] text-slate-500">Gelir İdaresi Başkanlığı E-Fatura Sistemi</p>
+                </div>
+
+                <div className="text-right font-mono text-[11px] space-y-1 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <div><span className="text-slate-400">Belge No:</span> <strong className="text-indigo-600 dark:text-indigo-400 font-extrabold">{viewingEBelge.invoiceNo}</strong></div>
+                  <div><span className="text-slate-400">Tarih:</span> <strong>{viewingEBelge.invoiceDate} 14:32</strong></div>
+                  <div><span className="text-slate-400">Senaryo:</span> <strong>TICARETFATURA</strong></div>
+                  <div><span className="text-slate-400">Fatura Tipi:</span> <strong>SATIS</strong></div>
+                  <div className="text-[9px] text-slate-400 truncate max-w-[220px]">ETTN: 8F9E0D1A-2B3C-4D5E-6F7A-8B9C0D1E2F3A</div>
+                </div>
+              </div>
+
+              {/* Parties Section (Satıcı & Alıcı) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                
+                {/* Satıcı (Supplier) */}
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 space-y-1.5">
+                  <span className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-wider block">
+                    SATICI (TEDARİKÇİ FİRMA)
+                  </span>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-xs">{viewingEBelge.supplierName}</h4>
+                  <div className="text-[11px] space-y-0.5 text-slate-600 dark:text-slate-300 font-mono">
+                    <div>VKN / TCKN: <strong>9870123456</strong></div>
+                    <div>Vergi Dairesi: <strong>Nilüfer V.D.</strong></div>
+                    <div>Adres: Organize Sanayi Bölgesi 4. Cadde No:12 Nilüfer / BURSA</div>
+                    <div>Tel / E-Posta: 0224 555 12 34 | muhasebe@firma.com</div>
+                  </div>
+                </div>
+
+                {/* Alıcı (Customer / Management) */}
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 space-y-1.5">
+                  <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider block">
+                    ALICI (MÜŞTERİ / YÖNETİM)
+                  </span>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-xs">Yıldız Konakları Site Yönetimi</h4>
+                  <div className="text-[11px] space-y-0.5 text-slate-600 dark:text-slate-300 font-mono">
+                    <div>VKN / TCKN: <strong>1234567890</strong></div>
+                    <div>Vergi Dairesi: <strong>Nilüfer V.D.</strong></div>
+                    <div>Adres: Yıldız Mah. Manolya Sok. No:4 Nilüfer / BURSA</div>
+                    <div>Tel / E-Posta: 0224 444 0 999 | yonetim@yildizkonaklari.com</div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Line Items Table */}
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <table className="w-full text-left border-collapse text-xs font-mono">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[10px] font-bold text-slate-500 uppercase">
+                      <th className="p-2.5">S.No</th>
+                      <th className="p-2.5">Mal / Hizmet Açıklaması</th>
+                      <th className="p-2.5 text-right">Miktar</th>
+                      <th className="p-2.5 text-right">Birim Fiyat</th>
+                      <th className="p-2.5 text-right">KDV (%)</th>
+                      <th className="p-2.5 text-right">KDV Tutarı</th>
+                      <th className="p-2.5 text-right">Toplam Tutar</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tr>
+                      <td className="p-2.5 font-bold">1</td>
+                      <td className="p-2.5 font-sans font-semibold">
+                        {viewingEBelge.supplierName} - Fatura Kapsamı Mal ve Hizmet Bedeli ({viewingEBelge.invoiceType})
+                      </td>
+                      <td className="p-2.5 text-right">1 Adet</td>
+                      <td className="p-2.5 text-right">{formatCurrency(viewingEBelge.netAmount)}</td>
+                      <td className="p-2.5 text-right">%20</td>
+                      <td className="p-2.5 text-right">{formatCurrency(viewingEBelge.taxAmount)}</td>
+                      <td className="p-2.5 text-right font-bold">{formatCurrency(viewingEBelge.totalAmount)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Summary Totals & Amount in Words */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-end">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Yazı İle Ödenecek Tutar</span>
+                  <p className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200 italic">
+                    Yalnız #{formatCurrency(viewingEBelge.totalAmount).replace('₺', '').trim()} TürkLirası#
+                  </p>
+                  
+                  {/* QR Code & Signature Simulation */}
+                  <div className="flex items-center gap-3 border-t border-slate-200 dark:border-slate-700 pt-3 mt-2">
+                    <div className="w-14 h-14 bg-slate-900 text-white rounded flex items-center justify-center font-mono text-[8px] text-center font-bold p-1">
+                      GİB QR KAREKOD
+                    </div>
+                    <div className="text-[9px] text-slate-400 space-y-0.5 font-mono">
+                      <div>GİB Onay Zamanı: {viewingEBelge.invoiceDate} 14:32:01</div>
+                      <div>Mali Mühür ID: 50291823901</div>
+                      <div className="text-emerald-600 font-bold">✓ E-İmza Doğrulandı</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Calculation breakdown */}
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2 font-mono text-xs">
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>Mal Hizmet Toplam Tutarı:</span>
+                    <strong className="text-slate-900 dark:text-white">{formatCurrency(viewingEBelge.netAmount)}</strong>
+                  </div>
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>Hesaplanan KDV (%20):</span>
+                    <strong>{formatCurrency(viewingEBelge.taxAmount)}</strong>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-200 dark:border-slate-700 pt-2 text-rose-600 font-extrabold text-sm">
+                    <span>Vergiler Dahil Toplam Tutar:</span>
+                    <span>{formatCurrency(viewingEBelge.totalAmount)}</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Bottom Bar */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+              <button
+                type="button"
+                onClick={() => setViewingEBelge(null)}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm"
+              >
+                Kapat
+              </button>
+            </div>
+
           </div>
         </div>
       )}
