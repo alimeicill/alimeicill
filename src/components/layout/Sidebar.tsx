@@ -107,7 +107,7 @@ function getRoleConfig(pathname: string | null) {
           { href: '/yonetici/finans-gelismis', label: 'Resmi Muhasebe & Finans' },
           { href: '/yonetici/raporlar', label: 'Raporlar' },
           { href: '/yonetici/cari', label: 'Cari Hesaplar' },
-          { href: '/yonetici/cari/faturalar', label: 'Cari Faturaları' },
+          { href: '/yonetici/cari/faturalar', label: 'Faturalar' },
           { href: '/yonetici/satinalma/alis-faturalari', label: 'Alış Faturaları' },
         ]
       },

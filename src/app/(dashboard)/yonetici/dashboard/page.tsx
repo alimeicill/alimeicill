@@ -22,6 +22,7 @@ import {
   SiteMessage, 
   SoftwareAnnouncement 
 } from '@/lib/services/site-hesabim-service';
+import { HeroCarouselBanner } from '@/components/dashboard/HeroCarouselBanner';
 import Link from 'next/link';
 
 export default function YoneticiDashboardPage() {
@@ -103,26 +104,8 @@ export default function YoneticiDashboardPage() {
         {/* Left Column (lg:col-span-8) */}
         <div className="lg:col-span-8 space-y-6">
           
-          {/* Hızlı İşlemler Gradient Banner */}
-          <div className="relative rounded-2xl overflow-hidden shadow-sm h-36 bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 text-white flex items-center justify-between p-6">
-            <div className="space-y-1.5 max-w-[70%]">
-              <span className="inline-block text-[9px] font-black tracking-widest bg-white/20 px-2 py-0.5 rounded uppercase">
-                Yeni Modül Yayında
-              </span>
-              <h2 className="text-sm sm:text-base font-extrabold leading-snug">
-                Banka Entegrasyonu ve Otomatik Tahsilat
-              </h2>
-              <p className="text-[10px] text-indigo-100/90 leading-normal">
-                Banka hareketlerini anlık çekin, akıllı kurallarla daire borçlarını otomatik kapatın.
-              </p>
-            </div>
-            <Link 
-              href="/yonetici/banka-sync"
-              className="bg-white hover:bg-slate-50 text-indigo-700 rounded-xl px-4 py-2 text-xs font-bold shadow-md hover:shadow-lg transition-all shrink-0 flex items-center gap-1.5"
-            >
-              Entegre Et <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+          {/* Hareketli & Dinamik Hızlı İşlemler Banner Slider */}
+          <HeroCarouselBanner />
 
           {/* Interactive Calendar & Notes */}
           <NotesCalendar 

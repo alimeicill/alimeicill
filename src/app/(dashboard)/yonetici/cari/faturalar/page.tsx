@@ -252,7 +252,7 @@ export default function CariFaturalarPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">
-            Cari Faturalar & Tahakkuklar
+            Faturalar & Tahakkuklar
           </h1>
           <p className="text-sm text-[var(--text-secondary)] mt-1">
             Paydaş cari hesaplarına ait gider faturalarının kaydı ve resmi takibi

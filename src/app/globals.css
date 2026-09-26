@@ -70,6 +70,15 @@
   50% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
 }
 
+@keyframes carousel-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+.animate-carousel-progress {
+  animation: carousel-progress linear infinite;
+}
+
 /* Base styles */
 html {
   scroll-behavior: smooth;
