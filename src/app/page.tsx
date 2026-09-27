@@ -2,192 +2,343 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Building, ShieldCheck, Zap, Receipt, Sparkles, PhoneCall, Check, ArrowRight } from 'lucide-react';
+import Image from 'next/image';
+import { 
+  Building, 
+  ShieldCheck, 
+  Zap, 
+  Receipt, 
+  Sparkles, 
+  ArrowRight, 
+  Play, 
+  Check, 
+  TrendingUp, 
+  Users, 
+  Lock,
+  ChevronDown
+} from 'lucide-react';
+import { PromotionalModal } from '@/components/landing/PromotionalModal';
+import { DashboardPreviewWidget } from '@/components/landing/DashboardPreviewWidget';
+import { InteractiveFeatures } from '@/components/landing/InteractiveFeatures';
 
 export default function LandingPage() {
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col justify-between text-[var(--text-primary)]">
-      {/* Navbar */}
-      <nav className="glass border-b border-[var(--border-color)] sticky top-0 z-50">
+    <div className="min-h-screen bg-slate-950 text-white selection:bg-indigo-500 selection:text-white font-sans">
+      
+      {/* 1. Animated Promotional Pop-Up Modal */}
+      <PromotionalModal />
+
+      {/* 2. Top Navigation Bar */}
+      <nav className="fixed top-0 left-0 right-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/80 transition-all">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
+            
+            {/* Logo */}
             <div className="flex items-center space-x-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary-600 to-indigo-600 text-white font-bold">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-indigo-500 text-white font-black shadow-lg shadow-indigo-500/20">
                 <Building className="h-5 w-5" />
-              </span>
-              <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-primary-600 to-indigo-600 bg-clip-text text-transparent">
+              </div>
+              <span className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
                 ApartmanYönet
               </span>
             </div>
 
-            <div className="flex items-center space-x-4">
+            {/* Navigation links */}
+            <div className="hidden md:flex items-center space-x-8 text-xs font-semibold text-slate-300">
+              <button 
+                onClick={() => scrollToSection('hero')} 
+                className="hover:text-white transition-colors"
+              >
+                Ana Sayfa
+              </button>
+              <button 
+                onClick={() => scrollToSection('preview')} 
+                className="hover:text-white transition-colors"
+              >
+                Canlı Önizleme
+              </button>
+              <button 
+                onClick={() => scrollToSection('features')} 
+                className="hover:text-white transition-colors"
+              >
+                Özellikler
+              </button>
+              <button 
+                onClick={() => scrollToSection('pricing')} 
+                className="hover:text-white transition-colors"
+              >
+                Fiyatlandırma
+              </button>
+            </div>
+
+            {/* Right Action buttons */}
+            <div className="flex items-center space-x-3">
               <Link
                 href="/giris"
-                className="text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                className="text-xs font-bold text-slate-300 hover:text-white px-3 py-2 transition-colors"
               >
                 Giriş Yap
               </Link>
               <Link
-                href="/kayit"
-                className="rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all"
+                href="/yonetici/dashboard"
+                className="rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-1.5"
               >
-                Ücretsiz Başla
+                <span>Demo Paneline Gir</span>
+                <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <header className="relative py-20 overflow-hidden text-center max-w-4xl mx-auto px-4 space-y-6">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full bg-primary-500/10 blur-3xl -z-10" />
+      {/* 3. Hero Section */}
+      <header id="hero" className="relative pt-32 pb-20 overflow-hidden border-b border-slate-800/80">
+        
+        {/* Background Glow Orbs */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[450px] bg-gradient-to-tr from-indigo-600/20 via-purple-600/15 to-pink-600/10 rounded-full blur-3xl -z-10 pointer-events-none" />
+        <div className="absolute top-10 right-10 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl -z-10 pointer-events-none" />
 
-        <span className="inline-flex items-center space-x-1 rounded-full bg-primary-500/10 px-3 py-1 text-xs font-semibold text-primary-600 dark:text-primary-400">
-          <Sparkles className="h-3 w-3 mr-1" />
-          Versiyon 1.0 — Tam Kapsamlı SaaS Altyapısı
-        </span>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            
+            {/* Hero Left Content */}
+            <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
+              
+              <div className="inline-flex items-center gap-2 rounded-full bg-slate-900 border border-slate-700/80 px-4 py-1.5 text-xs font-bold text-indigo-300 shadow-inner">
+                <Sparkles className="h-3.5 w-3.5 text-indigo-400 animate-spin" style={{ animationDuration: '6s' }} />
+                <span>2026 Nesil Şeffaf Site ve Rezidans SaaS Platformu</span>
+              </div>
 
-        <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight leading-tight">
-          Apartman ve Site Yönetiminde <br />
-          <span className="bg-gradient-to-r from-primary-600 to-indigo-600 bg-clip-text text-transparent">
-            Yeni Nesil Dijital Dönem
-          </span>
-        </h1>
+              <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] text-white">
+                Akıllı Site ve Apartman Yönetimi: <br />
+                <span className="bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400 bg-clip-text text-transparent">
+                  Şeffaf, Kolay, Güvenli
+                </span>
+              </h1>
 
-        <p className="text-lg text-[var(--text-secondary)] max-w-2xl mx-auto leading-relaxed">
-          Aidat takibi, otomatik faiz hesaplama, Tiptap dökümanları, akıllı Kanban görev yönetimi ve anlık sakin bildirimlerini tek bir merkezden yönetin.
-        </p>
+              <p className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-normal">
+                Aidat takibi, otomatik banka senkronizasyonu, resmi e-Fatura entegrasyonu, arıza/görev yönetimi ve sakin bildirimlerini tek bir dijital merkezden yönetin.
+              </p>
 
-        <div className="pt-4 flex justify-center gap-4">
-          <Link
-            href="/kayit"
-            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-primary-600 to-indigo-700 px-6 py-3.5 text-sm font-semibold text-white shadow-md hover:from-primary-700 hover:to-indigo-800 transition-all"
-          >
-            Sitenizi Şimdi Kurun
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-          
-          <a
-            href="#features"
-            className="inline-flex items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] px-6 py-3.5 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
-          >
-            Özellikleri İncele
-          </a>
+              {/* Action Buttons */}
+              <div className="pt-4 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
+                <button
+                  onClick={() => scrollToSection('preview')}
+                  className="w-full sm:w-auto inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 hover:from-indigo-600 hover:to-purple-700 px-8 py-4 text-sm font-extrabold text-white shadow-xl shadow-indigo-500/25 transition-all hover:scale-105 active:scale-95 group"
+                >
+                  <span>Hemen Keşfet</span>
+                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+
+                <Link
+                  href="/yonetici/dashboard"
+                  className="w-full sm:w-auto inline-flex items-center justify-center rounded-2xl border border-slate-700 bg-slate-900/80 hover:bg-slate-800 px-8 py-4 text-sm font-extrabold text-slate-200 hover:text-white transition-all shadow-md hover:border-slate-600"
+                >
+                  <Play className="mr-2 h-4 w-4 text-indigo-400 fill-indigo-400" />
+                  Demo Paneline Gir
+                </Link>
+              </div>
+
+              {/* Key Trust Stats */}
+              <div className="pt-8 grid grid-cols-3 gap-4 border-t border-slate-800/80 text-center lg:text-left">
+                <div>
+                  <div className="text-xl sm:text-2xl font-black text-white">%99.8</div>
+                  <div className="text-[11px] text-slate-400 font-medium">Otomatik Banka Eşleşmesi</div>
+                </div>
+                <div>
+                  <div className="text-xl sm:text-2xl font-black text-white">1,250+</div>
+                  <div className="text-[11px] text-slate-400 font-medium">Aktif Yönetilen Daire</div>
+                </div>
+                <div>
+                  <div className="text-xl sm:text-2xl font-black text-white">₺45M+</div>
+                  <div className="text-[11px] text-slate-400 font-medium">Yıllık İşlenen Aidat Hacmi</div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Hero Right: 3D Building Graphics & Floating Glass Metric Badges */}
+            <div className="lg:col-span-5 relative flex justify-center">
+              <div className="relative w-full max-w-lg aspect-square rounded-3xl overflow-hidden border border-slate-700/80 bg-slate-900/50 shadow-2xl p-2 group">
+                
+                {/* Embedded 3D Building Image */}
+                <img
+                  src="/isometric_building.png"
+                  alt="Modern 3D Isometric Property Building"
+                  className="w-full h-full object-cover rounded-2xl transition-transform duration-700 group-hover:scale-105"
+                />
+
+                {/* Floating Glassmorphic Badge 1: Live Collection */}
+                <div className="absolute top-6 left-6 rounded-2xl bg-slate-900/80 border border-slate-700/90 backdrop-blur-xl p-3 shadow-xl flex items-center space-x-3 animate-pulse" style={{ animationDuration: '4s' }}>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    <TrendingUp className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400 font-medium">Aylık Tahsilat Hacmi</div>
+                    <div className="text-xs font-black text-white">₺1.450.000 +</div>
+                  </div>
+                </div>
+
+                {/* Floating Glassmorphic Badge 2: Security SSL */}
+                <div className="absolute bottom-6 right-6 rounded-2xl bg-slate-900/80 border border-slate-700/90 backdrop-blur-xl p-3 shadow-xl flex items-center space-x-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                    <Lock className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400 font-medium">Resmi GİB Entegrasyonu</div>
+                    <div className="text-xs font-black text-white">256-Bit SSL Güvencesi</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
         </div>
       </header>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 bg-[var(--bg-secondary)] border-y border-[var(--border-color)]">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <h2 className="text-3xl font-bold tracking-tight">Tek Bir Çatı Altında Tüm Operasyonlar</h2>
-            <p className="text-sm text-[var(--text-secondary)]">Sitenizin operasyonel ve finansal tüm ihtiyaçlarına özel olarak tasarlanmış modüller.</p>
-          </div>
-
-          <div className="grid gap-8 md:grid-cols-3">
-            {[
-              {
-                icon: Receipt,
-                title: 'Aidat & Finans Takibi',
-                desc: 'Otomatik aidat tahakkuku, gecikme faizi işletimi ve banka entegrasyonları ile tahsilat oranlarınızı artırın.',
-              },
-              {
-                icon: Zap,
-                title: 'Arıza & Teknik Yönetim',
-                desc: 'Kanban tabanlı görev atamaları ile asansör, elektrik, temizlik işlerini takip edin, teknik personele otomatik atayın.',
-              },
-              {
-                icon: ShieldCheck,
-                title: 'Güvenlik & Ziyaretçiler',
-                desc: 'Ziyaretçiler için QR davetiyeleri, kargo/teslimat takipleri ve giriş-çıkış log kayıtları ile sitenizin güvenliğini artırın.',
-              },
-            ].map((feat, idx) => {
-              const Icon = feat.icon;
-              return (
-                <div key={idx} className="glass border border-[var(--border-color)] rounded-2xl p-6 shadow-sm hover:shadow-md transition-all">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-500/10 text-primary-600 mb-4">
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <h3 className="font-bold text-lg mb-2">{feat.title}</h3>
-                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{feat.desc}</p>
-                </div>
-              );
-            })}
-          </div>
+      {/* 4. Live Interactive Dashboard Preview Section */}
+      <section id="preview" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        <div className="text-center max-w-2xl mx-auto space-y-3">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold">
+            <Sparkles className="h-3.5 w-3.5" /> Canlı Sistem Önizlemesi
+          </span>
+          <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
+            Yönetim Panelini Doğrudan Deneyimleyin
+          </h2>
+          <p className="text-sm text-slate-400">
+            Aşağıdaki interaktif panel simülasyonundaki butonlara tıklayarak tahsilat ve duyuru işlemlerini anında test edin.
+          </p>
         </div>
+
+        {/* Live Interactive Dashboard Component */}
+        <DashboardPreviewWidget />
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+      {/* 5. Interactive Feature Highlights & Aidat Calculator */}
+      <InteractiveFeatures />
+
+      {/* 6. Pricing Section */}
+      <section id="pricing" className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="text-center max-w-2xl mx-auto space-y-3">
-          <h2 className="text-3xl font-bold tracking-tight">Büyüklüğünüze Göre Fiyatlandırma</h2>
-          <p className="text-sm text-[var(--text-secondary)]">İster tek bloklu apartman, ister binlerce dairelik devasa siteler.</p>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+            Esnek SaaS Paketleri
+          </span>
+          <h2 className="text-3xl font-black tracking-tight sm:text-4xl">
+            Her Büyüklükteki Apartman ve Site İçin
+          </h2>
+          <p className="text-sm text-slate-400">
+            İster 10 dairelik aile apartmanı, ister 1.000 dairelik mega rezidans.
+          </p>
         </div>
 
         <div className="grid gap-8 md:grid-cols-3 items-stretch">
-          {[
-            {
-              name: 'Ücretsiz Plan (FREE)',
-              price: '₺0',
-              desc: 'Küçük tek bloklu apartmanlar için temel özellikler.',
-              features: ['20 Daireye Kadar', 'Temel Aidat Kayıtları', 'Banka EFT/Havale Bilgileri', 'Destek Talebi Sistemi'],
-            },
-            {
-              name: 'Profesyonel Plan (PRO)',
-              price: '₺499 / ay',
-              desc: 'Çok bloklu siteler için gelişmiş finans ve operasyon.',
-              features: ['100 Daireye Kadar', 'İyzico Sanal POS Entegrasyonu', 'Otomatik Gecikme Faizi', 'Tiptap Editör Belge Paylaşımı', '7/24 Teknik Personel Paneli'],
-            },
-            {
-              name: 'Enterprise Plan',
-              price: 'Teklif Alın',
-              desc: 'Rezidans, AVM ve karma kullanımlı mega yapılar.',
-              features: ['Sınırsız Daire ve Blok', 'Özel API Entegrasyonları', 'Akıllı Sayaç & IoT Desteği', 'OCR Fatura Okuma', 'Özel SLA ve Müşteri Temsilcisi'],
-            },
-          ].map((plan, idx) => (
-            <div key={idx} className={`glass border rounded-3xl p-8 shadow-sm flex flex-col justify-between ${idx === 1 ? 'border-primary-600 ring-2 ring-primary-500/10 scale-105 relative' : 'border-[var(--border-color)]'}`}>
-              {idx === 1 && (
-                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-primary-600 px-3 py-1 text-[10px] font-bold text-white uppercase tracking-wider">
-                  En Popüler
-                </span>
-              )}
-              <div className="space-y-4">
-                <h4 className="font-bold text-lg text-[var(--text-primary)]">{plan.name}</h4>
-                <div className="flex items-baseline space-x-1">
-                  <span className="text-4xl font-extrabold tracking-tight">{plan.price}</span>
-                </div>
-                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{plan.desc}</p>
-                <div className="h-px bg-[var(--border-color)] my-4" />
-                <ul className="space-y-2.5 text-xs text-[var(--text-secondary)]">
-                  {plan.features.map((f, i) => (
-                    <li key={i} className="flex items-center space-x-2">
-                      <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="pt-8">
-                <Link
-                  href="/kayit"
-                  className={`flex w-full items-center justify-center rounded-xl py-3 text-xs font-bold shadow-sm transition-all ${
-                    idx === 1
-                      ? 'bg-primary-600 text-white hover:bg-primary-700'
-                      : 'border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]'
-                  }`}
-                >
-                  Hemen Başla
-                </Link>
-              </div>
+          
+          {/* Plan 1: Free */}
+          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8 flex flex-col justify-between space-y-6 hover:border-slate-700 transition-all">
+            <div className="space-y-4">
+              <h3 className="text-lg font-extrabold text-white">Başlangıç (FREE)</h3>
+              <div className="text-3xl font-black text-white">₺0 <span className="text-xs text-slate-400 font-normal">/ sonsuza kadar</span></div>
+              <p className="text-xs text-slate-400">Küçük tek bloklu apartmanlar için temel yönetim modülü.</p>
+              
+              <ul className="space-y-2.5 text-xs text-slate-300 pt-4 border-t border-slate-800">
+                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-400" /> 20 Daireye Kadar</li>
+                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-400" /> Temel Aidat Kayıtları</li>
+                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-400" /> Havale/EFT Hesap Bilgileri</li>
+                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-400" /> Destek Talebi Paneli</li>
+              </ul>
             </div>
-          ))}
+
+            <Link
+              href="/yonetici/dashboard"
+              className="w-full text-center py-3 px-4 rounded-xl border border-slate-700 font-bold text-xs text-slate-200 hover:text-white hover:bg-slate-800 transition-all"
+            >
+              Ücretsiz Başla
+            </Link>
+          </div>
+
+          {/* Plan 2: Pro */}
+          <div className="rounded-3xl border-2 border-indigo-500 bg-gradient-to-b from-slate-900 to-indigo-950 p-8 flex flex-col justify-between space-y-6 shadow-2xl relative scale-105">
+            <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-1 rounded-full text-[10px] font-black uppercase text-white tracking-widest shadow">
+              En Çok Tercih Edilen
+            </span>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-extrabold text-white">Profesyonel (PRO)</h3>
+              <div className="text-3xl font-black text-white">₺499 <span className="text-xs text-indigo-300 font-normal">/ ay</span></div>
+              <p className="text-xs text-indigo-200">Çok bloklu siteler için tam kapsamlı finans & operasyon.</p>
+              
+              <ul className="space-y-2.5 text-xs text-slate-200 pt-4 border-t border-indigo-500/30">
+                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-400" /> 100 Daireye Kadar</li>
+                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-400" /> Otomatik Banka Entegrasyonu</li>
+                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-400" /> GİB E-Fatura & Yevmiye Defteri</li>
+                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-400" /> Ziyaretçi QR Davet Kodu</li>
+                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-400" /> SMS / WhatsApp Duyuru Motoru</li>
+              </ul>
+            </div>
+
+            <Link
+              href="/yonetici/dashboard"
+              className="w-full text-center py-3.5 px-4 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 font-extrabold text-xs text-white shadow-lg shadow-indigo-500/30 transition-all"
+            >
+              Demo Paneline Gir
+            </Link>
+          </div>
+
+          {/* Plan 3: Enterprise */}
+          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8 flex flex-col justify-between space-y-6 hover:border-slate-700 transition-all">
+            <div className="space-y-4">
+              <h3 className="text-lg font-extrabold text-white">Kurumsal (ENTERPRISE)</h3>
+              <div className="text-3xl font-black text-white">Teklif Alın</div>
+              <p className="text-xs text-slate-400">Rezidans, AVM ve binlerce dairelik mega toplu yapılar.</p>
+              
+              <ul className="space-y-2.5 text-xs text-slate-300 pt-4 border-t border-slate-800">
+                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-400" /> Sınırsız Daire & Blok</li>
+                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-400" /> Akıllı Sayaç & IoT Desteği</li>
+                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-400" /> Özel API & ERP Entegrasyonu</li>
+                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-400" /> 7/24 Özel Müşteri Temsilcisi</li>
+              </ul>
+            </div>
+
+            <Link
+              href="/yonetici/dashboard"
+              className="w-full text-center py-3 px-4 rounded-xl border border-slate-700 font-bold text-xs text-slate-200 hover:text-white hover:bg-slate-800 transition-all"
+            >
+              İletişime Geçin
+            </Link>
+          </div>
+
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="glass border-t border-[var(--border-color)] py-8 text-center text-xs text-[var(--text-tertiary)]">
-        <p>© {new Date().getFullYear()} ApartmanYönet. Tüm hakları saklıdır. Çözüm ortaklığı ve entegrasyonlar için iletişime geçebilirsiniz.</p>
+      {/* 7. Footer */}
+      <footer className="border-t border-slate-800 bg-slate-950 py-12 text-slate-400 text-xs">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center space-x-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white font-bold">
+              <Building className="h-4 w-4" />
+            </div>
+            <span className="text-sm font-bold text-white">ApartmanYönet SaaS Portal</span>
+          </div>
+
+          <div className="flex items-center space-x-6 text-slate-400">
+            <Link href="/yonetici/dashboard" className="hover:text-white">Kontrol Paneli</Link>
+            <Link href="/yonetici/banka-sync" className="hover:text-white">Banka Sync</Link>
+            <Link href="/yonetici/finans-gelismis" className="hover:text-white">Resmi Muhasebe</Link>
+            <Link href="/giris" className="hover:text-white">Giriş Yap</Link>
+          </div>
+
+          <p>© 2026 ApartmanYönet. Tüm hakları saklıdır.</p>
+        </div>
       </footer>
+
     </div>
   );
 }
