@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: siteyonet-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: siteyonet
+      POSTGRES_PASSWORD: siteyonet
+      POSTGRES_DB: siteyonet
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

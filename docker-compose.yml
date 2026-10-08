@@ -1,16 +1,44 @@
+# Production (ör. Dokploy "Compose" servisi). Gerekli ortam değişkenleri:
+#   POSTGRES_PASSWORD  — sadece harf ve rakam kullanın (bağlantı adresine girer)
+#   JWT_SECRET         — uzun, rastgele bir değer
+# Alan adını "frontend" servisine, 3100 portuna bağlayın.
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: siteyonet-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: siteyonet
-      POSTGRES_PASSWORD: siteyonet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD tanımlı değil}
       POSTGRES_DB: siteyonet
-    ports:
-      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U siteyonet -d siteyonet"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://siteyonet:${POSTGRES_PASSWORD}@postgres:5432/siteyonet?schema=public
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET tanımlı değil}
+      PORT: 4000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        API_URL: http://backend:4000
+    restart: unless-stopped
+    expose:
+      - "3100"
+    depends_on:
+      - backend
 
 volumes:
   pgdata:

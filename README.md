@@ -49,7 +49,7 @@ Tarayıcıda http://localhost:3100 adresini açın.
 | Yönetici | yonetici@demo.com | Demo12345 |
 | Sakin | 0532 111 22 33 | sakin123 |
 
-Docker kullanmak isterseniz `npm run db` yerine kök dizinde `docker compose up -d` çalıştırın (aynı port ve kullanıcı bilgileri).
+Docker kullanmak isterseniz `npm run db` yerine kök dizinde `docker compose -f docker-compose.dev.yml up -d` çalıştırın (aynı port ve kullanıcı bilgileri).
 
 ### MVP'de neler var
 
@@ -265,9 +265,9 @@ Bu proje özel lisanslıdır.
 Soru ve önerileriniz için: [iletisim@ornek.com]
 ## Sunucuya kurulum (Dokploy / Docker)
 
-Production için `docker-compose.prod.yml` kullanılır (PostgreSQL + backend + frontend).
+Production için kökteki `docker-compose.yml` kullanılır (PostgreSQL + backend + frontend).
 
-1. Dokploy'da **Compose** tipinde servis oluşturun, bu depoyu bağlayın, *Compose Path* olarak `./docker-compose.prod.yml` yazın.
+1. Dokploy'da **Compose** tipinde servis oluşturun, bu depoyu bağlayın (Compose Path varsayılan `./docker-compose.yml` kalabilir).
 2. *Environment* sekmesine ekleyin:
    ```
    POSTGRES_PASSWORD=sadeceHarfVeRakam
