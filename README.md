@@ -263,3 +263,15 @@ Bu proje özel lisanslıdır.
 ## İletişim
 
 Soru ve önerileriniz için: [iletisim@ornek.com]
+## Sunucuya kurulum (Dokploy / Docker)
+
+Production için `docker-compose.prod.yml` kullanılır (PostgreSQL + backend + frontend).
+
+1. Dokploy'da **Compose** tipinde servis oluşturun, bu depoyu bağlayın, *Compose Path* olarak `./docker-compose.prod.yml` yazın.
+2. *Environment* sekmesine ekleyin:
+   ```
+   POSTGRES_PASSWORD=sadeceHarfVeRakam
+   JWT_SECRET=uzun-rastgele-bir-deger
+   ```
+3. *Domains* sekmesinde alan adını **frontend** servisine, port **3100**'e bağlayın.
+4. Deploy. Veritabanı migration'ları backend açılışında otomatik uygulanır.
