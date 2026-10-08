@@ -1,0 +1,442 @@
+// Site ve apartman yönetimi — çok kiracılı (tenant = firma) veri modeli.
+// Her kayıt tenantId taşır; servis katmanı her sorguyu tenantId ile filtreler.
+// Para alanları Decimal(15,2); tarih/saatler UTC saklanır.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  RESIDENT
+}
+
+enum OccupantRole {
+  OWNER
+  TENANT
+}
+
+enum FinanceItemKind {
+  INCOME
+  EXPENSE
+  CHARGE
+}
+
+enum CurrentAccountKind {
+  SUPPLIER
+  CUSTOMER
+  OTHER
+}
+
+enum PaymentAccountKind {
+  CASH
+  BANK
+}
+
+enum Direction {
+  IN
+  OUT
+}
+
+enum TxSource {
+  COLLECTION
+  INCOME
+  EXPENSE
+  TRANSFER
+  INVOICE_PAYMENT
+}
+
+enum BatchKind {
+  AIDAT
+  MANUAL
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+}
+
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String
+  lateFeeRate Decimal  @default(5) @db.Decimal(5, 2) // aylık %, KMK md.20
+  createdAt   DateTime @default(now())
+
+  users           User[]
+  sites           Site[]
+  unitTypes       UnitType[]
+  units           Unit[]
+  people          Person[]
+  financeItems    FinanceItem[]
+  currentAccounts CurrentAccount[]
+  paymentAccounts PaymentAccount[]
+  charges         Charge[]
+  chargeBatches   ChargeBatch[]
+  payments        Payment[]
+  transactions    CashTransaction[]
+  invoices        SupplierInvoice[]
+  announcements   Announcement[]
+  tickets         Ticket[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name         String
+  email        String?  @unique
+  phone        String?  @unique
+  passwordHash String
+  role         Role
+  personId     String?  @unique
+  person       Person?  @relation(fields: [personId], references: [id], onDelete: Cascade)
+  smsNotify    Boolean  @default(true)
+  mailNotify   Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model Site {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  code      String?
+  address   String?
+  city      String?
+  district  String?
+  createdAt DateTime @default(now())
+
+  blocks          Block[]
+  units           Unit[]
+  paymentAccounts PaymentAccount[]
+  charges         Charge[]
+  chargeBatches   ChargeBatch[]
+  payments        Payment[]
+  transactions    CashTransaction[]
+  invoices        SupplierInvoice[]
+  announcements   Announcement[]
+  tickets         Ticket[]
+
+  @@index([tenantId])
+}
+
+model Block {
+  id     String @id @default(uuid())
+  siteId String
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name   String
+  units  Unit[]
+
+  @@unique([siteId, name])
+}
+
+model UnitType {
+  id          String  @id @default(uuid())
+  tenantId    String
+  tenant      Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  code        String?
+  coefficient Decimal @default(1) @db.Decimal(8, 4)
+  units       Unit[]
+
+  @@index([tenantId])
+}
+
+model Unit {
+  id         String    @id @default(uuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId     String
+  site       Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  blockId    String
+  block      Block     @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  doorNo     String
+  floor      Int?
+  areaSqm    Decimal?  @db.Decimal(10, 2)
+  landShare  Decimal?  @db.Decimal(12, 4)
+  unitTypeId String?
+  unitType   UnitType? @relation(fields: [unitTypeId], references: [id], onDelete: SetNull)
+  createdAt  DateTime  @default(now())
+
+  occupants UnitOccupant[]
+  charges   Charge[]
+  payments  Payment[]
+  tickets   Ticket[]
+
+  @@unique([blockId, doorNo])
+  @@index([tenantId, siteId])
+}
+
+model Person {
+  id            String    @id @default(uuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  firstName     String
+  lastName      String
+  phone         String?
+  email         String?
+  tckn          String?
+  notes         String?
+  kvkkConsentAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  units    UnitOccupant[]
+  user     User?
+  charges  Charge[]
+  payments Payment[]
+  tickets  Ticket[]
+
+  @@index([tenantId])
+}
+
+model UnitOccupant {
+  id        String       @id @default(uuid())
+  unitId    String
+  unit      Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  personId  String
+  person    Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  role      OccupantRole
+  isDebtor  Boolean      @default(false) // borçların yazıldığı kişi
+  startDate DateTime     @default(now())
+
+  @@unique([unitId, personId, role])
+}
+
+model FinanceItem {
+  id          String          @id @default(uuid())
+  tenantId    String
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  kind        FinanceItemKind
+  active      Boolean         @default(true)
+  isDefault   Boolean         @default(false)
+  description String?
+
+  charges      Charge[]
+  transactions CashTransaction[]
+  invoices     SupplierInvoice[]
+  batches      ChargeBatch[]
+
+  @@index([tenantId, kind])
+}
+
+model CurrentAccount {
+  id        String             @id @default(uuid())
+  tenantId  String
+  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  kind      CurrentAccountKind @default(SUPPLIER)
+  title     String
+  taxOffice String?
+  taxNo     String?
+  tckn      String?
+  phone     String?
+  email     String?
+  city      String?
+  district  String?
+  address   String?
+  active    Boolean            @default(true)
+  createdAt DateTime           @default(now())
+
+  transactions CashTransaction[]
+  invoices     SupplierInvoice[]
+
+  @@index([tenantId])
+}
+
+model PaymentAccount {
+  id             String             @id @default(uuid())
+  tenantId       String
+  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  kind           PaymentAccountKind
+  name           String
+  currency       String             @default("TRY")
+  siteId         String?
+  site           Site?              @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  iban           String?
+  openingBalance Decimal            @default(0) @db.Decimal(15, 2)
+  active         Boolean            @default(true)
+  description    String?
+  createdAt      DateTime           @default(now())
+
+  transactions CashTransaction[]
+  payments     Payment[]
+
+  @@index([tenantId])
+}
+
+// Borçlandırma işlemi (toplu aidat veya tekil borç) — iptal ve geçmiş için gruplama
+model ChargeBatch {
+  id            String       @id @default(uuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId        String
+  site          Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  kind          BatchKind
+  financeItemId String?
+  financeItem   FinanceItem? @relation(fields: [financeItemId], references: [id], onDelete: SetNull)
+  description   String
+  totalAmount   Decimal      @db.Decimal(15, 2)
+  cancelledAt   DateTime?
+  createdAt     DateTime     @default(now())
+
+  charges Charge[]
+
+  @@index([tenantId, siteId])
+}
+
+// Daireye yazılan borç satırı (aidat, ortak gider payı vb.)
+model Charge {
+  id            String       @id @default(uuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId        String
+  site          Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  unitId        String
+  unit          Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  personId      String?
+  person        Person?      @relation(fields: [personId], references: [id], onDelete: SetNull)
+  batchId       String?
+  batch         ChargeBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  financeItemId String?
+  financeItem   FinanceItem? @relation(fields: [financeItemId], references: [id], onDelete: SetNull)
+  period        String? // YYYY-MM, aidat için
+  description   String
+  amount        Decimal      @db.Decimal(15, 2)
+  paid          Decimal      @default(0) @db.Decimal(15, 2)
+  date          DateTime
+  dueDate       DateTime
+  cancelledAt   DateTime?
+  createdAt     DateTime     @default(now())
+
+  allocations PaymentAllocation[]
+
+  @@index([tenantId, unitId])
+  @@index([tenantId, siteId, dueDate])
+}
+
+// Tahsilat — FIFO ile en eski vadeli borçlara dağıtılır; artan kısım avanstır
+model Payment {
+  id               String         @id @default(uuid())
+  tenantId         String
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId           String
+  site             Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  unitId           String
+  unit             Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  personId         String?
+  person           Person?        @relation(fields: [personId], references: [id], onDelete: SetNull)
+  paymentAccountId String
+  paymentAccount   PaymentAccount @relation(fields: [paymentAccountId], references: [id])
+  amount           Decimal        @db.Decimal(15, 2)
+  allocated        Decimal        @default(0) @db.Decimal(15, 2)
+  date             DateTime
+  description      String?
+  cancelledAt      DateTime?
+  createdAt        DateTime       @default(now())
+
+  allocations  PaymentAllocation[]
+  transactions CashTransaction[]
+
+  @@index([tenantId, unitId])
+}
+
+model PaymentAllocation {
+  id        String  @id @default(uuid())
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  chargeId  String
+  charge    Charge  @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  amount    Decimal @db.Decimal(15, 2)
+}
+
+// Kasa/banka hareketi — ödeme hesabının bakiyesini belirler
+model CashTransaction {
+  id               String          @id @default(uuid())
+  tenantId         String
+  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  paymentAccountId String
+  paymentAccount   PaymentAccount  @relation(fields: [paymentAccountId], references: [id])
+  direction        Direction
+  source           TxSource
+  amount           Decimal         @db.Decimal(15, 2)
+  date             DateTime
+  description      String?
+  siteId           String?
+  site             Site?           @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  financeItemId    String?
+  financeItem      FinanceItem?    @relation(fields: [financeItemId], references: [id], onDelete: SetNull)
+  currentAccountId String?
+  currentAccount   CurrentAccount? @relation(fields: [currentAccountId], references: [id], onDelete: SetNull)
+  paymentId        String?
+  payment          Payment?        @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoiceId        String?
+  invoice          SupplierInvoice? @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  transferGroup    String?
+  createdAt        DateTime        @default(now())
+
+  @@index([tenantId, paymentAccountId, date])
+}
+
+model SupplierInvoice {
+  id               String         @id @default(uuid())
+  tenantId         String
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currentAccountId String
+  currentAccount   CurrentAccount @relation(fields: [currentAccountId], references: [id])
+  siteId           String?
+  site             Site?          @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  financeItemId    String?
+  financeItem      FinanceItem?   @relation(fields: [financeItemId], references: [id], onDelete: SetNull)
+  invoiceNo        String?
+  date             DateTime
+  dueDate          DateTime?
+  amount           Decimal        @db.Decimal(15, 2)
+  paidAmount       Decimal        @default(0) @db.Decimal(15, 2)
+  description      String?
+  createdAt        DateTime       @default(now())
+
+  transactions CashTransaction[]
+
+  @@index([tenantId])
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId    String?
+  site      Site?    @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model Ticket {
+  id          String       @id @default(uuid())
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId      String
+  site        Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  unitId      String?
+  unit        Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  personId    String?
+  person      Person?      @relation(fields: [personId], references: [id], onDelete: SetNull)
+  title       String
+  description String
+  status      TicketStatus @default(OPEN)
+  response    String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([tenantId, status])
+}
