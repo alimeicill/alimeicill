@@ -23,7 +23,8 @@ import {
   ChevronDown,
   Gauge,
   ClipboardList,
-  Sparkles
+  Sparkles,
+  Gavel
 } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
 import { useUIStore } from '@/stores/ui';
@@ -69,6 +70,7 @@ function getRoleConfig(pathname: string | null) {
         { href: '/sakin/aidat', label: 'Borçlarım & Ödeme', icon: Wallet },
         { href: '/sakin/ariza', label: 'Arıza Bildirimi', icon: ListTodo },
         { href: '/sakin/duyurular', label: 'Duyurular', icon: FileText },
+        { href: '/sakin/genel-kurul', label: 'Genel Kurul', icon: Gavel },
         { href: '/sakin/ziyaretci', label: 'Ziyaretçi QR Davet', icon: Users },
         { href: '/sakin/profil', label: 'Profilim', icon: Settings },
       ] as NavItem[]
@@ -112,6 +114,7 @@ function getRoleConfig(pathname: string | null) {
         ]
       },
       { href: '/yonetici/duyurular', label: 'Duyurular', icon: FileText },
+      { href: '/yonetici/genel-kurul', label: 'Dijital Genel Kurul', icon: Gavel },
       { href: '/yonetici/anketler', label: 'Anket & Oylamalar', icon: ClipboardList },
       { href: '/yonetici/sms', label: 'SMS Yönetimi', icon: MessageSquare },
       { href: '/yonetici/arizalar', label: 'Arızalar & Görevler', icon: ListTodo },

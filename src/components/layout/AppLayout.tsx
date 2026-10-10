@@ -20,20 +20,26 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+    <div className="flex h-screen overflow-hidden print:block print:h-auto print:overflow-visible">
+      <div className="print:hidden">
+        <Sidebar />
+      </div>
       <div
         className={cn(
-          'flex flex-1 flex-col transition-all duration-300',
+          'flex flex-1 flex-col transition-all duration-300 print:ml-0',
           sidebarCollapsed ? 'ml-[72px]' : 'ml-64'
         )}
       >
-        <Header />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <div className="print:hidden">
+          <Header />
+        </div>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 print:overflow-visible print:p-0">
           <div className="animate-fade-in">{children}</div>
         </main>
       </div>
-      <FeedbackWidget />
+      <div className="print:hidden">
+        <FeedbackWidget />
+      </div>
     </div>
   );
 }
