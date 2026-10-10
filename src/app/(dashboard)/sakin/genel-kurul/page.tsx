@@ -10,9 +10,8 @@ import {
   calculateItemResult,
   calculateQuorum,
   formatMeetingDate,
+  genelKurulApi,
   getVotingUnits,
-  loadMeetings,
-  saveMeetings,
   type AttendanceMode,
   type GeneralMeeting,
   type VoteChoice,
@@ -31,33 +30,53 @@ export default function ResidentGeneralMeetingPage() {
   const units = useMemo(() => getVotingUnits(), []);
   const myUnit = units.find((u) => u.id === MY_UNIT_ID);
   const [meetings, setMeetings] = useState<GeneralMeeting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    const sync = () => setMeetings(loadMeetings());
+    let cancelled = false;
+    const sync = async () => {
+      try {
+        const list = await genelKurulApi.list();
+        if (!cancelled) {
+          setMeetings(list);
+          setLoadError(null);
+        }
+      } catch (e) {
+        if (!cancelled) setLoadError((e as Error).message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
     sync();
-    window.addEventListener('storage', sync);
-    return () => window.removeEventListener('storage', sync);
+    // Toplantının açılması ve sonuçlar canlı yansısın.
+    const timer = setInterval(sync, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, []);
 
-  const update = (id: string, fn: (m: GeneralMeeting) => GeneralMeeting) => {
-    const next = meetings.map((m) => (m.id === id ? fn(m) : m));
-    setMeetings(next);
-    saveMeetings(next);
+  const run = async (fn: () => Promise<GeneralMeeting>, message: string) => {
+    try {
+      const updated = await fn();
+      setMeetings((list) => list.map((m) => (m.id === updated.id ? updated : m)));
+      toast.success(message);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
   };
 
-  const setAttendance = (m: GeneralMeeting, mode: AttendanceMode, proxyName?: string) => {
-    update(m.id, (x) => ({ ...x, attendance: { ...x.attendance, [MY_UNIT_ID]: { mode, proxyName } } }));
-    toast.success(
+  const setAttendance = (m: GeneralMeeting, mode: AttendanceMode, proxyName?: string) =>
+    run(
+      () => genelKurulApi.setAttendance(m.id, MY_UNIT_ID, mode, proxyName),
       mode === 'vekalet'
         ? `Vekâletiniz ${proxyName} adına kaydedildi.`
         : `Katılımınız (${ATTENDANCE_LABELS[mode]}) kaydedildi.`
     );
-  };
 
-  const vote = (m: GeneralMeeting, itemId: string, choice: VoteChoice) => {
-    update(m.id, (x) => ({ ...x, votes: { ...x.votes, [itemId]: { ...(x.votes[itemId] ?? {}), [MY_UNIT_ID]: choice } } }));
-    toast.success(`Oyunuz kaydedildi: ${VOTE_LABELS[choice]}`);
-  };
+  const vote = (m: GeneralMeeting, itemId: string, choice: VoteChoice) =>
+    run(() => genelKurulApi.setVote(m.id, itemId, MY_UNIT_ID, choice), `Oyunuz kaydedildi: ${VOTE_LABELS[choice]}`);
 
   const sorted = [...meetings].sort((a, b) => {
     const order = { devam: 0, planlandi: 1, tamamlandi: 2 } as const;
@@ -77,7 +96,17 @@ export default function ResidentGeneralMeetingPage() {
         </p>
       </div>
 
-      {sorted.length === 0 && (
+      {loading && (
+        <div className="glass rounded-2xl border border-[var(--border-color)] p-12 text-center text-[var(--text-tertiary)]">Yükleniyor…</div>
+      )}
+
+      {!loading && loadError && (
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-6 text-sm text-rose-600">
+          Genel kurul bilgileri yüklenemedi: {loadError}
+        </div>
+      )}
+
+      {!loading && !loadError && sorted.length === 0 && (
         <div className="glass rounded-2xl border border-[var(--border-color)] p-12 text-center text-[var(--text-tertiary)]">
           Planlanmış bir genel kurul bulunmuyor.
         </div>

@@ -26,16 +26,19 @@ import {
   calculateQuorum,
   findProxyViolations,
   formatMeetingDate,
+  genelKurulApi,
   getVotingUnits,
-  loadMeetings,
   proxyLimit,
-  saveMeetings,
   type AgendaItem,
   type AttendanceMode,
   type DecisionType,
   type GeneralMeeting,
+  type MeetingAction,
+  type NewMeetingInput,
   type VoteChoice,
 } from '@/lib/genel-kurul';
+
+const POLL_MS = 5000;
 
 type Tab = 'hazirun' | 'gundem' | 'tutanak';
 
@@ -60,33 +63,84 @@ export default function GeneralMeetingPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('hazirun');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    const sync = () => {
-      const list = loadMeetings();
-      setMeetings(list);
-      setSelectedId((prev) => prev ?? list[0]?.id ?? null);
+    let cancelled = false;
+    const sync = async () => {
+      try {
+        const list = await genelKurulApi.list();
+        if (cancelled) return;
+        setMeetings(list);
+        setLoadError(null);
+        setSelectedId((prev) => (prev && list.some((m) => m.id === prev) ? prev : list[0]?.id ?? null));
+      } catch (e) {
+        if (!cancelled) setLoadError((e as Error).message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
     sync();
-    window.addEventListener('storage', sync);
-    return () => window.removeEventListener('storage', sync);
+    // Sakinlerin katılım ve oyları canlı yansısın.
+    const timer = setInterval(sync, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, []);
 
   const meeting = meetings.find((m) => m.id === selectedId) ?? null;
 
-  const updateMeeting = (id: string, fn: (m: GeneralMeeting) => GeneralMeeting) => {
-    const next = meetings.map((m) => (m.id === id ? fn(m) : m));
-    setMeetings(next);
-    saveMeetings(next);
+  const replaceMeeting = (updated: GeneralMeeting) =>
+    setMeetings((list) => list.map((m) => (m.id === updated.id ? updated : m)));
+
+  /** Sunucu işlemini çalıştırır, güncel toplantıyı listeye yazar. Başarılıysa true döner. */
+  const run = async (fn: () => Promise<GeneralMeeting>) => {
+    try {
+      replaceMeeting(await fn());
+      return true;
+    } catch (e) {
+      toast.error((e as Error).message);
+      return false;
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Bu genel kurulu silmek istediğinize emin misiniz?')) return;
-    const next = meetings.filter((m) => m.id !== id);
-    setMeetings(next);
-    saveMeetings(next);
-    setSelectedId(next[0]?.id ?? null);
-    toast.success('Genel kurul silindi.');
+    try {
+      await genelKurulApi.remove(id);
+      const next = meetings.filter((m) => m.id !== id);
+      setMeetings(next);
+      setSelectedId(next[0]?.id ?? null);
+      toast.success('Genel kurul silindi.');
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleCreate = async (input: NewMeetingInput) => {
+    try {
+      const created = await genelKurulApi.create(input);
+      setMeetings((list) => [created, ...list]);
+      setSelectedId(created.id);
+      setTab('hazirun');
+      setIsAddModalOpen(false);
+      toast.success('Genel kurul oluşturuldu. Sakinlere bildirim gönderildi.');
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleLoadDemo = async () => {
+    try {
+      const list = await genelKurulApi.loadDemo();
+      setMeetings(list);
+      setSelectedId(list[0]?.id ?? null);
+      toast.success('Örnek genel kurullar yüklendi.');
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
   };
 
   const stats = useMemo(() => {
@@ -139,9 +193,23 @@ export default function GeneralMeetingPage() {
       <div className="grid grid-cols-1 xl:grid-cols-[300px_1fr] gap-6">
         {/* Meeting list */}
         <div className="space-y-3 print:hidden">
-          {meetings.length === 0 && (
+          {loading && (
             <div className="glass rounded-2xl border border-[var(--border-color)] p-8 text-center text-xs text-[var(--text-tertiary)]">
-              Henüz bir genel kurul oluşturulmadı.
+              Yükleniyor…
+            </div>
+          )}
+          {!loading && loadError && (
+            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-5 text-xs text-rose-600 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>Genel kurullar yüklenemedi: {loadError}</span>
+            </div>
+          )}
+          {!loading && !loadError && meetings.length === 0 && (
+            <div className="glass rounded-2xl border border-[var(--border-color)] p-8 text-center text-xs text-[var(--text-tertiary)] space-y-3">
+              <p>Henüz bir genel kurul oluşturulmadı.</p>
+              <button onClick={handleLoadDemo} className="text-indigo-500 font-semibold hover:underline">
+                Örnek genel kurul yükle
+              </button>
             </div>
           )}
           {meetings.map((m) => {
@@ -185,7 +253,7 @@ export default function GeneralMeetingPage() {
             units={units}
             tab={tab}
             setTab={setTab}
-            onUpdate={(fn) => updateMeeting(meeting.id, fn)}
+            run={run}
             onDelete={() => handleDelete(meeting.id)}
           />
         ) : (
@@ -198,15 +266,7 @@ export default function GeneralMeetingPage() {
       {isAddModalOpen && (
         <CreateMeetingModal
           onClose={() => setIsAddModalOpen(false)}
-          onCreate={(m) => {
-            const next = [m, ...meetings];
-            setMeetings(next);
-            saveMeetings(next);
-            setSelectedId(m.id);
-            setTab('hazirun');
-            setIsAddModalOpen(false);
-            toast.success('Genel kurul oluşturuldu. Sakinlere bildirim gönderildi.');
-          }}
+          onCreate={handleCreate}
         />
       )}
     </div>
@@ -218,77 +278,51 @@ function MeetingDetail({
   units,
   tab,
   setTab,
-  onUpdate,
+  run,
   onDelete,
 }: {
   meeting: GeneralMeeting;
   units: ReturnType<typeof getVotingUnits>;
   tab: Tab;
   setTab: (t: Tab) => void;
-  onUpdate: (fn: (m: GeneralMeeting) => GeneralMeeting) => void;
+  run: (fn: () => Promise<GeneralMeeting>) => Promise<boolean>;
   onDelete: () => void;
 }) {
   const quorum = calculateQuorum(meeting, units);
   const violations = findProxyViolations(meeting, units);
   const locked = meeting.status === 'tamamlandi';
 
-  const setAttendance = (unitId: string, mode: AttendanceMode | '') => {
-    onUpdate((m) => {
-      const attendance = { ...m.attendance };
-      const votes = { ...m.votes };
-      if (mode === '') {
-        delete attendance[unitId];
-        // Toplantıda olmayan malikin oyu geçersizdir.
-        for (const k of Object.keys(votes)) {
-          if (votes[k]?.[unitId]) {
-            votes[k] = { ...votes[k] };
-            delete votes[k][unitId];
-          }
-        }
-      } else {
-        attendance[unitId] = { mode, proxyName: mode === 'vekalet' ? attendance[unitId]?.proxyName ?? '' : undefined };
-      }
-      return { ...m, attendance, votes };
-    });
-  };
+  const setAttendance = (unitId: string, mode: AttendanceMode | '') =>
+    run(() =>
+      genelKurulApi.setAttendance(
+        meeting.id,
+        unitId,
+        mode === '' ? null : mode,
+        mode === 'vekalet' ? meeting.attendance[unitId]?.proxyName : undefined
+      )
+    );
 
   const setProxyName = (unitId: string, proxyName: string) => {
-    onUpdate((m) => ({ ...m, attendance: { ...m.attendance, [unitId]: { mode: 'vekalet', proxyName } } }));
+    if ((meeting.attendance[unitId]?.proxyName ?? '') === proxyName.trim()) return;
+    run(() => genelKurulApi.setAttendance(meeting.id, unitId, 'vekalet', proxyName));
   };
 
   const setVote = (itemId: string, unitId: string, choice: VoteChoice) => {
-    onUpdate((m) => {
-      const current = m.votes[itemId] ?? {};
-      const next = { ...current };
-      if (next[unitId] === choice) delete next[unitId];
-      else next[unitId] = choice;
-      return { ...m, votes: { ...m.votes, [itemId]: next } };
-    });
+    const current = meeting.votes[itemId]?.[unitId];
+    run(() => genelKurulApi.setVote(meeting.id, itemId, unitId, current === choice ? null : choice));
   };
 
-  const startMeeting = () => {
-    if (!quorum.met) {
-      toast.error(`Toplantı yeter sayısı sağlanamadı. Gerekli: ${quorum.required}.`);
-      return;
+  const act = async (action: MeetingAction, message: string) => {
+    if (await run(() => genelKurulApi.action(meeting.id, action))) {
+      if (action === 'finish') setTab('tutanak');
+      toast.success(message);
     }
-    onUpdate((m) => ({ ...m, status: 'devam' }));
-    toast.success('Toplantı açıldı. Oylama başlatılabilir.');
   };
 
-  const postponeToSecondRound = () => {
-    onUpdate((m) => {
-      const d = new Date(m.scheduledAt);
-      d.setDate(d.getDate() + 7);
-      return { ...m, round: 2, scheduledAt: d.toISOString(), status: 'planlandi' };
-    });
-    toast.info('Yeter sayı sağlanamadığı için 7 gün sonrasına 2. toplantı planlandı (KMK md. 30).');
-  };
-
-  const finishMeeting = () => {
-    onUpdate((m) => ({ ...m, status: 'tamamlandi' }));
-    setTab('tutanak');
-    toast.success('Genel kurul kapatıldı, tutanak oluşturuldu.');
-  };
+  const startMeeting = () => act('start', 'Toplantı açıldı. Oylama başlatılabilir.');
+  const postponeToSecondRound = () =>
+    act('postpone', 'Yeter sayı sağlanamadığı için 7 gün sonrasına 2. toplantı planlandı (KMK md. 30).');
+  const finishMeeting = () => act('finish', 'Genel kurul kapatıldı, tutanak oluşturuldu.');
 
   const sharePct = quorum.totalShare ? Math.round((quorum.presentShare / quorum.totalShare) * 100) : 0;
   const unitPct = quorum.totalUnits ? Math.round((quorum.presentUnits / quorum.totalUnits) * 100) : 0;
@@ -416,10 +450,12 @@ function MeetingDetail({
                     <td className="px-4 py-2.5">
                       {a?.mode === 'vekalet' && (
                         <input
+                          key={a.proxyName ?? ''}
                           disabled={locked}
-                          value={a.proxyName ?? ''}
+                          defaultValue={a.proxyName ?? ''}
                           placeholder="Vekil adı soyadı"
-                          onChange={(e) => setProxyName(u.id, e.target.value)}
+                          onBlur={(e) => setProxyName(u.id, e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                           className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-2 py-1 text-xs w-40"
                         />
                       )}
@@ -675,8 +711,9 @@ function CreateMeetingModal({
   onCreate,
 }: {
   onClose: () => void;
-  onCreate: (m: GeneralMeeting) => void;
+  onCreate: (input: NewMeetingInput) => Promise<void>;
 }) {
+  const [submitting, setSubmitting] = useState(false);
   const [title, setTitle] = useState('');
   const [kind, setKind] = useState<'olagan' | 'olaganustu'>('olagan');
   const [date, setDate] = useState('');
@@ -687,7 +724,7 @@ function CreateMeetingModal({
     { title: '', decisionType: 'adi' },
   ]);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const agenda = items.filter((i) => i.title.trim());
     if (agenda.length === 0) {
@@ -700,21 +737,16 @@ function CreateMeetingModal({
     if (daysAhead < 15) {
       toast.warning('Uyarı: KMK md. 29\'a göre çağrı toplantıdan en az 15 gün önce yapılmalıdır.');
     }
-    const ts = Date.now();
-    onCreate({
-      id: `gk-${ts}`,
+    setSubmitting(true);
+    await onCreate({
       title: title.trim(),
       kind,
-      round: 1,
       scheduledAt: scheduled.toISOString(),
       location: location.trim(),
       onlineLink: online ? 'https://meet.example.com/genel-kurul' : undefined,
-      status: 'planlandi',
-      agenda: agenda.map((a, i) => ({ id: `gd-${ts}-${i}`, title: a.title.trim(), decisionType: a.decisionType })),
-      attendance: {},
-      votes: {},
-      createdAt: new Date().toISOString(),
+      agenda: agenda.map((a) => ({ title: a.title.trim(), decisionType: a.decisionType })),
     });
+    setSubmitting(false);
   };
 
   return (
@@ -797,7 +829,7 @@ function CreateMeetingModal({
             <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]">
               Vazgeç
             </button>
-            <button type="submit" className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow">
+            <button type="submit" disabled={submitting} className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow disabled:opacity-60">
               <Users className="h-3.5 w-3.5" /> Çağrıyı Yayınla
             </button>
           </div>

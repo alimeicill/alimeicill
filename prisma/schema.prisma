@@ -850,3 +850,65 @@ model BankMovement {
 
 
 
+
+// -------------------- Dijital Genel Kurul --------------------
+// Bağımsız bölümler henüz Apartment tablosunda değil (demo veriler mock),
+// bu yüzden unitId ve tenantId düz metin olarak tutulur.
+
+model GeneralMeeting {
+  id          String   @id @default(cuid())
+  tenantId    String
+  title       String
+  kind        String
+  round       Int      @default(1)
+  scheduledAt DateTime
+  location    String
+  onlineLink  String?
+  status      String   @default("planlandi")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  agenda      GeneralMeetingAgendaItem[]
+  attendances GeneralMeetingAttendance[]
+  votes       GeneralMeetingVote[]
+
+  @@index([tenantId])
+}
+
+model GeneralMeetingAgendaItem {
+  id           String  @id @default(cuid())
+  meetingId    String
+  order        Int
+  title        String
+  description  String?
+  decisionType String
+
+  meeting GeneralMeeting       @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  votes   GeneralMeetingVote[]
+}
+
+model GeneralMeetingAttendance {
+  meetingId String
+  unitId    String
+  mode      String
+  proxyName String?
+  createdAt DateTime @default(now())
+
+  meeting GeneralMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@id([meetingId, unitId])
+}
+
+model GeneralMeetingVote {
+  meetingId    String
+  agendaItemId String
+  unitId       String
+  choice       String
+  createdAt    DateTime @default(now())
+
+  meeting    GeneralMeeting           @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  agendaItem GeneralMeetingAgendaItem @relation(fields: [agendaItemId], references: [id], onDelete: Cascade)
+
+  @@id([agendaItemId, unitId])
+  @@index([meetingId])
+}

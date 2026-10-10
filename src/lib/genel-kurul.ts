@@ -4,8 +4,6 @@
 import { mockUnits } from '@/lib/mock-data';
 import type { Unit } from '@/types';
 
-export const GENEL_KURUL_STORAGE_KEY = 'site_genel_kurul';
-
 export type DecisionType = 'adi' | 'salt' | 'besteDort' | 'oybirligi';
 export type VoteChoice = 'kabul' | 'ret' | 'cekimser';
 export type AttendanceMode = 'fiziksel' | 'online' | 'vekalet';
@@ -211,24 +209,51 @@ export function formatMeetingDate(iso: string): string {
   });
 }
 
-export function loadMeetings(): GeneralMeeting[] {
-  try {
-    const saved = localStorage.getItem(GENEL_KURUL_STORAGE_KEY);
-    if (saved) return JSON.parse(saved);
-  } catch {}
-  const seed = buildSeedMeetings();
-  saveMeetings(seed);
-  return seed;
+// -------------------- API istemcisi --------------------
+
+export type MeetingAction = 'start' | 'finish' | 'postpone';
+
+export interface NewMeetingInput {
+  title: string;
+  kind: GeneralMeeting['kind'];
+  scheduledAt: string;
+  location: string;
+  onlineLink?: string;
+  agenda: Omit<AgendaItem, 'id'>[];
 }
 
-export function saveMeetings(meetings: GeneralMeeting[]) {
-  try {
-    localStorage.setItem(GENEL_KURUL_STORAGE_KEY, JSON.stringify(meetings));
-    window.dispatchEvent(new Event('storage'));
-  } catch {}
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    cache: 'no-store',
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Sunucu hatası');
+  return data as T;
 }
 
-function buildSeedMeetings(): GeneralMeeting[] {
+export const genelKurulApi = {
+  list: () => request<GeneralMeeting[]>('/api/genel-kurul'),
+  create: (input: NewMeetingInput) =>
+    request<GeneralMeeting>('/api/genel-kurul', { method: 'POST', body: JSON.stringify(input) }),
+  loadDemo: () => request<GeneralMeeting[]>('/api/genel-kurul', { method: 'POST', body: JSON.stringify({ demo: true }) }),
+  action: (id: string, action: MeetingAction) =>
+    request<GeneralMeeting>(`/api/genel-kurul/${id}`, { method: 'PATCH', body: JSON.stringify({ action }) }),
+  remove: (id: string) => request<{ ok: true }>(`/api/genel-kurul/${id}`, { method: 'DELETE' }),
+  setAttendance: (id: string, unitId: string, mode: AttendanceMode | null, proxyName?: string) =>
+    request<GeneralMeeting>(`/api/genel-kurul/${id}/attendance`, {
+      method: 'PUT',
+      body: JSON.stringify({ unitId, mode, proxyName }),
+    }),
+  setVote: (id: string, agendaItemId: string, unitId: string, choice: VoteChoice | null) =>
+    request<GeneralMeeting>(`/api/genel-kurul/${id}/votes`, {
+      method: 'PUT',
+      body: JSON.stringify({ agendaItemId, unitId, choice }),
+    }),
+};
+
+export function buildSeedMeetings(): GeneralMeeting[] {
   const units = getVotingUnits();
   const attendance: Record<string, Attendance> = {};
   // İlk 13 daire katılmış durumda; ikisi vekâletle.
