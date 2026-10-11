@@ -2,9 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { areaOf, areaOfPath, homePath, MANAGER_ROLES } from '@/lib/auth/roles';
 import { SESSION_COOKIE, verifySession } from '@/lib/auth/token';
 
-// Oturum gerektirmeyen API uçları. Cron kendi gizli anahtarıyla korunur.
-const PUBLIC_API = ['/api/auth/login', '/api/auth/register', '/api/auth/logout', '/api/cron/'];
-const AUTH_PAGES = ['/giris', '/kayit', '/sifremi-unuttum'];
+// Oturum gerektirmeyen API uçları (giriş, kayıt, şifre sıfırlama). Cron kendi gizli anahtarıyla korunur.
+const PUBLIC_API = ['/api/auth/', '/api/cron/'];
+const AUTH_PAGES = ['/giris', '/kayit', '/sifremi-unuttum', '/sifre-sifirla'];
 
 /**
  * İyimser kontrol: yalnızca imzalı çerezi okur. Asıl yetki kontrolü
@@ -46,5 +46,6 @@ export default async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)'],
+  // _next/ altındaki derleme dosyaları ve geliştirme bağlantıları (HMR) proxy'den geçmez.
+  matcher: ['/((?!_next/|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)'],
 };

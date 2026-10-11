@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   }
 
   clearFailures(key);
-  await createSession({ userId: user.id, tenantId: user.tenantId, role: user.role });
+  await createSession({ userId: user.id, tenantId: user.tenantId, role: user.role, ver: user.sessionVersion });
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   return NextResponse.json({ name: user.name, role: user.role, home: homePath(user.role) });
 }

@@ -27,7 +27,7 @@ import {
   findProxyViolations,
   formatMeetingDate,
   genelKurulApi,
-  getVotingUnits,
+  votingUnits,
   proxyLimit,
   type AgendaItem,
   type AttendanceMode,
@@ -37,6 +37,8 @@ import {
   type NewMeetingInput,
   type VoteChoice,
 } from '@/lib/genel-kurul';
+import { useQuery } from '@tanstack/react-query';
+import type { Unit } from '@/types';
 
 const POLL_MS = 5000;
 
@@ -58,7 +60,14 @@ const inputCls =
   'block w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none';
 
 export default function GeneralMeetingPage() {
-  const units = useMemo(() => getVotingUnits(), []);
+  const { data: allUnits = [] } = useQuery<Unit[]>({
+    queryKey: ['units', 'all'],
+    queryFn: async () => {
+      const res = await fetch('/api/units');
+      return res.ok ? res.json() : [];
+    },
+  });
+  const units = useMemo(() => votingUnits(allUnits), [allUnits]);
   const [meetings, setMeetings] = useState<GeneralMeeting[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('hazirun');
@@ -282,7 +291,7 @@ function MeetingDetail({
   onDelete,
 }: {
   meeting: GeneralMeeting;
-  units: ReturnType<typeof getVotingUnits>;
+  units: Unit[];
   tab: Tab;
   setTab: (t: Tab) => void;
   run: (fn: () => Promise<GeneralMeeting>) => Promise<boolean>;
@@ -522,7 +531,7 @@ function AgendaCard({
   index: number;
   item: AgendaItem;
   meeting: GeneralMeeting;
-  units: ReturnType<typeof getVotingUnits>;
+  units: Unit[];
   canVote: boolean;
   onVote: (unitId: string, choice: VoteChoice) => void;
 }) {
@@ -605,7 +614,7 @@ function AgendaCard({
   );
 }
 
-function Minutes({ meeting, units }: { meeting: GeneralMeeting; units: ReturnType<typeof getVotingUnits> }) {
+function Minutes({ meeting, units }: { meeting: GeneralMeeting; units: Unit[] }) {
   const quorum = calculateQuorum(meeting, units);
   const present = units.filter((u) => meeting.attendance[u.id]);
 

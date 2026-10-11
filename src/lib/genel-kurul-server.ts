@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUser, type CurrentUser } from '@/lib/auth/session';
 import { MANAGER_ROLES } from '@/lib/auth/roles';
+import { listUnits } from '@/lib/server/units';
 import {
   DECISION_TYPES,
-  getVotingUnits,
+  votingUnits,
   type Attendance,
   type AttendanceMode,
   type DecisionType,
@@ -64,8 +65,9 @@ export async function meetingResponse(id: string, tenantId: string) {
   return NextResponse.json(toDto(m));
 }
 
-export function isVotingUnit(unitId: unknown): unitId is string {
-  return typeof unitId === 'string' && getVotingUnits().some((u) => u.id === unitId);
+/** Sitenin oy hakkı olan daireleri (veritabanından). */
+export async function siteVotingUnits(tenantId: string) {
+  return votingUnits(await listUnits(tenantId));
 }
 
 export type MeetingUser = CurrentUser & { tenantId: string; isManager: boolean };
@@ -78,9 +80,15 @@ export async function requireMeetingUser(): Promise<MeetingUser | NextResponse> 
   return { ...auth, tenantId: auth.tenantId, isManager: MANAGER_ROLES.includes(auth.role) };
 }
 
-/** Yönetici her daire için, sakin yalnızca kat maliki olduğu daire için işlem yapabilir. */
-export function canActForUnit(user: MeetingUser, unitId: string) {
-  return user.isManager || getVotingUnits().some((u) => u.id === unitId && u.ownerId === user.id);
+/**
+ * Daire bu sitede oy hakkına sahip mi ve kullanıcı bu daire adına işlem yapabilir mi?
+ * Yönetici her daire için, sakin yalnızca kat maliki olduğu daire için işlem yapabilir.
+ */
+export async function checkUnitAccess(user: MeetingUser, unitId: unknown): Promise<NextResponse | null> {
+  const unit = typeof unitId === 'string' ? (await siteVotingUnits(user.tenantId)).find((u) => u.id === unitId) : undefined;
+  if (!unit) return fail('Geçersiz bağımsız bölüm.');
+  if (!user.isManager && unit.ownerId !== user.id) return fail('Bu daire adına işlem yapamazsınız.', 403);
+  return null;
 }
 
 export function fail(message: string, status = 400) {

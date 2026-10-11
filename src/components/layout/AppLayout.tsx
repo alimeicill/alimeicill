@@ -7,7 +7,7 @@ import { FeedbackWidget } from '@/components/layout/FeedbackWidget';
 import { useUIStore } from '@/stores/ui';
 import { cn } from '@/lib/utils';
 
-const authRoutes = ['/giris', '/kayit', '/sifremi-unuttum', '/kurulum'];
+const authRoutes = ['/giris', '/kayit', '/sifremi-unuttum', '/sifre-sifirla', '/kurulum'];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

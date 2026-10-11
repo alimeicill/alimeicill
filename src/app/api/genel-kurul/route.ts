@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { buildSeedMeetings, type GeneralMeeting } from '@/lib/genel-kurul';
+import { listUnits } from '@/lib/server/units';
 import {
   DECISION_TYPE_KEYS,
   fail,
@@ -34,7 +35,9 @@ export async function POST(request: Request) {
     if (!body) return fail('Geçersiz istek gövdesi.');
 
     if (body.demo === true) {
-      for (const m of buildSeedMeetings()) await createMeeting(m, user.tenantId);
+      const units = await listUnits(user.tenantId);
+      if (!units.some((u) => u.ownerName)) return fail('Örnek genel kurul için önce dairelere kat maliki ekleyin.');
+      for (const m of buildSeedMeetings(units)) await createMeeting(m, user.tenantId);
       return GET();
     }
 

@@ -45,6 +45,6 @@ export async function POST(request: Request) {
     });
   });
 
-  await createSession({ userId: user.id, tenantId: user.tenantId, role: user.role });
+  await createSession({ userId: user.id, tenantId: user.tenantId, role: user.role, ver: user.sessionVersion });
   return NextResponse.json({ home: '/kurulum' }, { status: 201 });
 }

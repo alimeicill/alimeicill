@@ -11,11 +11,13 @@ import {
   calculateQuorum,
   formatMeetingDate,
   genelKurulApi,
-  getVotingUnits,
+  votingUnits,
   type AttendanceMode,
   type GeneralMeeting,
   type VoteChoice,
 } from '@/lib/genel-kurul';
+import { useQuery } from '@tanstack/react-query';
+import type { Unit } from '@/types';
 import { useCurrentUser } from '@/lib/auth/use-current-user';
 
 
@@ -26,7 +28,14 @@ const VOTE_BTN: Record<VoteChoice, { active: string; idle: string }> = {
 };
 
 export default function ResidentGeneralMeetingPage() {
-  const units = useMemo(() => getVotingUnits(), []);
+  const { data: allUnits = [] } = useQuery<Unit[]>({
+    queryKey: ['units', 'all'],
+    queryFn: async () => {
+      const res = await fetch('/api/units');
+      return res.ok ? res.json() : [];
+    },
+  });
+  const units = useMemo(() => votingUnits(allUnits), [allUnits]);
   const { data: me } = useCurrentUser();
   // Kullanıcının kat maliki olduğu ilk daire adına işlem yapılır.
   const myUnitId = me?.ownedUnitIds[0] ?? '';
@@ -144,7 +153,7 @@ function MeetingCard({
 }: {
   meeting: GeneralMeeting;
   unitId: string;
-  units: ReturnType<typeof getVotingUnits>;
+  units: Unit[];
   onAttend: (mode: AttendanceMode, proxyName?: string) => void;
   onVote: (itemId: string, choice: VoteChoice) => void;
 }) {

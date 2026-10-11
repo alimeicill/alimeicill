@@ -4,10 +4,9 @@ import {
   VOTE_CHOICES,
   fail,
   findMeeting,
-  isVotingUnit,
   meetingResponse,
   requireMeetingUser,
-  canActForUnit,
+  checkUnitAccess,
   serverError,
 } from '@/lib/genel-kurul-server';
 
@@ -23,8 +22,9 @@ export async function PUT(request: Request, { params }: Ctx) {
       unitId?: unknown;
       choice?: unknown;
     };
-    if (!isVotingUnit(unitId)) return fail('Geçersiz bağımsız bölüm.');
-    if (!canActForUnit(user, unitId)) return fail('Bu daire adına işlem yapamazsınız.', 403);
+    const denied = await checkUnitAccess(user, unitId);
+    if (denied) return denied;
+    if (typeof unitId !== 'string') return fail('Geçersiz bağımsız bölüm.');
     if (choice !== null && !VOTE_CHOICES.includes(choice as never)) return fail('Geçersiz oy.');
 
     const m = await findMeeting(id, user.tenantId);

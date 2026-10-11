@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { mockUnits, mockInvoices, mockUsers } from '@/lib/mock-data';
+import React, { useState, useMemo } from 'react';
+import { mockInvoices, mockUsers } from '@/lib/mock-data';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getStatusColor } from '@/lib/utils';
 import { 
   Search, 
@@ -27,8 +28,21 @@ import {
 import type { Unit, UnitStatus, UnitType } from '@/types';
 import { toast } from 'sonner';
 
+async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'İşlem tamamlanamadı.');
+  return data as T;
+}
+
 export default function UnitsPage() {
-  const [units, setUnits] = useState<Unit[]>([]);
+  const queryClient = useQueryClient();
+  const { data: units = [], isLoading, error: loadError } = useQuery<Unit[]>({
+    queryKey: ['units', 'manager'],
+    queryFn: () => apiJson<Unit[]>('/api/yonetici/daireler'),
+  });
+  const refreshUnits = () => queryClient.invalidateQueries({ queryKey: ['units'] });
+  const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUnitForDetail, setSelectedUnitForDetail] = useState<Unit | null>(null);
 
@@ -57,20 +71,6 @@ export default function UnitsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  useEffect(() => {
-    const saved = localStorage.getItem('daireler_list');
-    if (saved) {
-      setUnits(JSON.parse(saved));
-    } else {
-      localStorage.setItem('daireler_list', JSON.stringify(mockUnits));
-      setUnits(mockUnits);
-    }
-  }, []);
-
-  const saveUnits = (newUnits: Unit[]) => {
-    setUnits(newUnits);
-    localStorage.setItem('daireler_list', JSON.stringify(newUnits));
-  };
 
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
@@ -120,7 +120,7 @@ export default function UnitsPage() {
   const [newVehicle, setNewVehicle] = useState('');
   const [newPet, setNewPet] = useState('');
 
-  const handleAddUnit = (e: React.FormEvent) => {
+  const handleAddUnit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBlockName || !newNumber || !newFloor || !newAreaSqm) {
       toast.error('Blok Adı, Daire No, Kat ve Metrekare alanları zorunludur.');
@@ -133,30 +133,34 @@ export default function UnitsPage() {
       return;
     }
 
-    const newUnit: Unit = {
-      id: `unit-${Date.now()}`,
-      tenantId: 'tenant-001',
-      blockName: newBlockName.trim().toUpperCase(),
-      floor: parseInt(newFloor),
-      number: newNumber.trim(),
-      areaSqm: parseFloat(newAreaSqm),
-      ownershipShare: parseFloat(newOwnershipShare) || 0,
-      ownerName: newOwnerName.trim() || undefined,
-      tenantName: newTenantName.trim() || undefined,
-      status: newStatus,
-      type: newType,
-      rooms: newRooms.trim() || '3+1',
-      emergencyName: newEmergencyName.trim() || undefined,
-      emergencyPhone: newEmergencyPhone.trim() || undefined,
-      vehicles: newVehicle.trim() ? [newVehicle.trim()] : [],
-      pets: newPet.trim() ? [newPet.trim()] : [],
-      residentHistory: [
-        { date: new Date().toISOString().split('T')[0], action: 'Kayıt', resident: newOwnerName.trim() || newTenantName.trim() || 'Yeni Sakin' }
-      ]
-    };
-
-    const updatedUnits = [...units, newUnit];
-    saveUnits(updatedUnits);
+    setSaving(true);
+    try {
+      await apiJson<Unit>('/api/yonetici/daireler', {
+        method: 'POST',
+        body: JSON.stringify({
+          blockName: newBlockName.trim().toUpperCase(),
+          number: newNumber.trim(),
+          floor: newFloor,
+          type: newType,
+          areaSqm: newAreaSqm,
+          ownershipShare: newOwnershipShare || 0,
+          status: newStatus,
+          rooms: newRooms.trim(),
+          ownerName: newOwnerName.trim(),
+          tenantName: newTenantName.trim(),
+          emergencyName: newEmergencyName.trim(),
+          emergencyPhone: newEmergencyPhone.trim(),
+          vehicle: newVehicle.trim(),
+          pet: newPet.trim(),
+        }),
+      });
+      await refreshUnits();
+    } catch (err) {
+      toast.error((err as Error).message);
+      return;
+    } finally {
+      setSaving(false);
+    }
 
     // Reset fields
     setNewBlockName('A');
@@ -178,11 +182,14 @@ export default function UnitsPage() {
     toast.success('Yeni daire başarıyla eklendi.');
   };
 
-  const handleDeleteUnit = (unitId: string) => {
-    if (window.confirm('Bu daireyi silmek istediğinize emin misiniz?')) {
-      const updated = units.filter(u => u.id !== unitId);
-      saveUnits(updated);
+  const handleDeleteUnit = async (unitId: string) => {
+    if (!window.confirm('Bu daireyi silmek istediğinize emin misiniz?')) return;
+    try {
+      await apiJson(`/api/yonetici/daireler/${unitId}`, { method: 'DELETE' });
+      await refreshUnits();
       toast.success('Daire başarıyla silindi.');
+    } catch (err) {
+      toast.error((err as Error).message);
     }
   };
 
@@ -308,7 +315,16 @@ export default function UnitsPage() {
       </div>
 
       {/* Grid or List View */}
-      {viewMode === 'grid' ? (
+      {isLoading && (
+        <div className="glass rounded-xl border border-[var(--border-color)] p-10 text-center text-sm text-[var(--text-tertiary)]">Daireler yükleniyor…</div>
+      )}
+      {loadError && (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-600">
+          Daireler yüklenemedi: {(loadError as Error).message}
+        </div>
+      )}
+
+      {isLoading || loadError ? null : viewMode === 'grid' ? (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filteredUnits.length === 0 ? (
             <div className="col-span-full py-12 text-center text-sm text-[var(--text-tertiary)]">
@@ -674,9 +690,10 @@ export default function UnitsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-gradient-to-r from-indigo-500 to-indigo-600 px-5 py-2 font-semibold text-white shadow hover:from-indigo-600 hover:to-indigo-700"
+                  disabled={saving}
+                  className="rounded-lg bg-gradient-to-r from-indigo-500 to-indigo-600 px-5 py-2 font-semibold text-white shadow hover:from-indigo-600 hover:to-indigo-700 disabled:opacity-60"
                 >
-                  Daireyi Kaydet
+                  {saving ? 'Kaydediliyor…' : 'Daireyi Kaydet'}
                 </button>
               </div>
             </form>

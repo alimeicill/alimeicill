@@ -9,6 +9,8 @@ export interface SessionPayload {
   userId: string;
   tenantId: string | null;
   role: UserRole;
+  /** Kullanıcının sessionVersion değeri; şifre değişince eski oturumlar düşer. */
+  ver: number;
 }
 
 let warned = false;
@@ -39,7 +41,12 @@ export async function verifySession(token: string | undefined): Promise<SessionP
   try {
     const { payload } = await jwtVerify(token, key(), { algorithms: ['HS256'] });
     if (typeof payload.userId !== 'string' || typeof payload.role !== 'string') return null;
-    return { userId: payload.userId, tenantId: (payload.tenantId as string | null) ?? null, role: payload.role as UserRole };
+    return {
+      userId: payload.userId,
+      tenantId: (payload.tenantId as string | null) ?? null,
+      role: payload.role as UserRole,
+      ver: typeof payload.ver === 'number' ? payload.ver : 0,
+    };
   } catch {
     return null;
   }

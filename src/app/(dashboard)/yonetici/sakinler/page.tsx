@@ -1,32 +1,38 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { mockUsers, mockUnits } from '@/lib/mock-data';
+import React, { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getInitials } from '@/lib/utils';
 import { Search, Mail, Phone, Building2, UserCircle, Plus, LayoutGrid, List } from 'lucide-react';
-import type { User, UserRole } from '@/types';
+import type { Unit, User, UserRole } from '@/types';
 import { toast } from 'sonner';
 
+type Resident = User & { unitLabel: string | null; canLogin: boolean };
+
+async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'İşlem tamamlanamadı.');
+  return data as T;
+}
+
 export default function ResidentsPage() {
-  const [users, setUsers] = useState<User[]>([]);
+  const queryClient = useQueryClient();
+  const { data: users = [], isLoading, error: loadError } = useQuery<Resident[]>({
+    queryKey: ['residents'],
+    queryFn: () => apiJson<Resident[]>('/api/yonetici/sakinler'),
+  });
+  const { data: units = [] } = useQuery<Unit[]>({
+    queryKey: ['units', 'manager'],
+    queryFn: () => apiJson<Unit[]>('/api/yonetici/daireler'),
+  });
+  // Sakin eklenince/silinince daire listesindeki malik/kiracı bilgisi de değişir.
+  const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ['residents'] }), queryClient.invalidateQueries({ queryKey: ['units'] })]);
+  const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  useEffect(() => {
-    const saved = localStorage.getItem('sakinler_list');
-    if (saved) {
-      setUsers(JSON.parse(saved));
-    } else {
-      localStorage.setItem('sakinler_list', JSON.stringify(mockUsers));
-      setUsers(mockUsers);
-    }
-  }, []);
-
-  const saveUsers = (newUsers: User[]) => {
-    setUsers(newUsers);
-    localStorage.setItem('sakinler_list', JSON.stringify(newUsers));
-  };
 
   const getRoleLabel = (role: UserRole) => {
     const labels: Record<UserRole, string> = {
@@ -72,25 +78,7 @@ export default function ResidentsPage() {
     }
   };
 
-  // Find unit details for a user if applicable
-  const getUserUnitInfo = (user: User) => {
-    if (user.unitId) {
-      const unit = mockUnits.find((u) => u.id === user.unitId);
-      if (unit) {
-        return `${unit.blockName} Blok - Daire ${unit.number}`;
-      }
-    }
-    // Check if the user is a tenant/owner in any unit
-    const unitByOwnerName = mockUnits.find((u) => u.ownerName === user.name);
-    if (unitByOwnerName) {
-      return `${unitByOwnerName.blockName} Blok - Daire ${unitByOwnerName.number} (Malik)`;
-    }
-    const unitByTenantName = mockUnits.find((u) => u.tenantName === user.name);
-    if (unitByTenantName) {
-      return `${unitByTenantName.blockName} Blok - Daire ${unitByTenantName.number} (Kiracı)`;
-    }
-    return null;
-  };
+  const getUserUnitInfo = (user: Resident) => user.unitLabel;
 
   // Form states for new resident modal
   const [showAddModal, setShowAddModal] = useState(false);
@@ -100,26 +88,32 @@ export default function ResidentsPage() {
   const [newResidentRole, setNewResidentRole] = useState<UserRole>('tenant');
   const [newResidentUnitId, setNewResidentUnitId] = useState('');
 
-  const handleAddResident = (e: React.FormEvent) => {
+  const handleAddResident = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newResidentName || !newResidentEmail) {
-      toast.error('Ad Soyad ve E-posta alanları zorunludur.');
+    if (!newResidentName.trim()) {
+      toast.error('Ad Soyad alanı zorunludur.');
       return;
     }
 
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      name: newResidentName.trim(),
-      email: newResidentEmail.trim(),
-      phone: newResidentPhone.trim() || undefined,
-      role: newResidentRole,
-      unitId: newResidentUnitId || undefined,
-      tenantId: 'tenant-001',
-      createdAt: new Date().toISOString()
-    };
-
-    const updatedUsers = [...users, newUser];
-    saveUsers(updatedUsers);
+    setSaving(true);
+    try {
+      await apiJson('/api/yonetici/sakinler', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: newResidentName.trim(),
+          email: newResidentEmail.trim(),
+          phone: newResidentPhone.trim(),
+          role: newResidentRole,
+          unitId: newResidentUnitId,
+        }),
+      });
+      await refresh();
+    } catch (err) {
+      toast.error((err as Error).message);
+      return;
+    } finally {
+      setSaving(false);
+    }
 
     // Reset fields
     setNewResidentName('');
@@ -132,11 +126,14 @@ export default function ResidentsPage() {
     toast.success('Yeni sakin başarıyla eklendi.');
   };
 
-  const handleDeleteResident = (userId: string) => {
-    if (window.confirm('Bu sakini silmek istediğinize emin misiniz?')) {
-      const updated = users.filter(u => u.id !== userId);
-      saveUsers(updated);
+  const handleDeleteResident = async (userId: string) => {
+    if (!window.confirm('Bu sakini silmek istediğinize emin misiniz?')) return;
+    try {
+      await apiJson(`/api/yonetici/sakinler/${userId}`, { method: 'DELETE' });
+      await refresh();
       toast.success('Sakin başarıyla silindi.');
+    } catch (err) {
+      toast.error((err as Error).message);
     }
   };
 
@@ -144,7 +141,7 @@ export default function ResidentsPage() {
     return users.filter((user) => {
       const matchesSearch =
         user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.email ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (user.phone && user.phone.includes(searchTerm));
 
       const matchesRole = roleFilter === 'all' || user.role === roleFilter;
@@ -223,8 +220,17 @@ export default function ResidentsPage() {
         </div>
       </div>
 
+      {isLoading && (
+        <div className="glass rounded-xl border border-[var(--border-color)] p-10 text-center text-sm text-[var(--text-tertiary)]">Sakinler yükleniyor…</div>
+      )}
+      {loadError && (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-600">
+          Sakinler yüklenemedi: {(loadError as Error).message}
+        </div>
+      )}
+
       {/* Grid or List View */}
-      {viewMode === 'grid' ? (
+      {isLoading || loadError ? null : viewMode === 'grid' ? (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filteredUsers.length === 0 ? (
             <div className="col-span-full py-12 text-center text-sm text-[var(--text-tertiary)]">
@@ -409,10 +415,9 @@ export default function ResidentsPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-[var(--text-secondary)]">E-posta Adresi *</label>
+                <label className="text-xs font-semibold text-[var(--text-secondary)]">E-posta Adresi</label>
                 <input
                   type="email"
-                  required
                   value={newResidentEmail}
                   onChange={(e) => setNewResidentEmail(e.target.value)}
                   placeholder="name@email.com"
@@ -441,9 +446,6 @@ export default function ResidentsPage() {
                   >
                     <option value="tenant">Kiracı</option>
                     <option value="owner">Ev Sahibi (Kat Maliki)</option>
-                    <option value="block_rep">Blok Temsilcisi</option>
-                    <option value="accountant">Muhasebeci</option>
-                    <option value="site_manager">Site Yöneticisi</option>
                   </select>
                 </div>
 
@@ -455,9 +457,9 @@ export default function ResidentsPage() {
                     className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2.5 text-xs text-[var(--text-primary)] focus:outline-none"
                   >
                     <option value="">Seçiniz (İsteğe Bağlı)</option>
-                    {mockUnits.map(unit => (
+                    {units.map(unit => (
                       <option key={unit.id} value={unit.id}>
-                        {unit.blockName} Blok - Daire {unit.number}
+                        {unit.blockName} / Daire {unit.number}
                       </option>
                     ))}
                   </select>
@@ -474,9 +476,10 @@ export default function ResidentsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-gradient-to-r from-indigo-500 to-indigo-600 px-5 py-2 font-semibold text-white shadow hover:from-indigo-600 hover:to-indigo-700"
+                  disabled={saving}
+                  className="rounded-lg bg-gradient-to-r from-indigo-500 to-indigo-600 px-5 py-2 font-semibold text-white shadow hover:from-indigo-600 hover:to-indigo-700 disabled:opacity-60"
                 >
-                  Sakin Ekle
+                  {saving ? 'Ekleniyor…' : 'Sakin Ekle'}
                 </button>
               </div>
             </form>

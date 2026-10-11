@@ -8,17 +8,31 @@ export default function SifremiUnuttumPage() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
 
     setIsLoading(true);
-
-    setTimeout(() => {
-      setIsLoading(false);
+    setError('');
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'İstek gönderilemedi. Lütfen tekrar deneyin.');
+        return;
+      }
       setSubmitted(true);
-    }, 1000);
+    } catch {
+      setError('Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -90,6 +104,12 @@ export default function SifremiUnuttumPage() {
                   </div>
                 </div>
 
+                {error && (
+                  <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-600">
+                    {error}
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   disabled={isLoading}
@@ -107,7 +127,8 @@ export default function SifremiUnuttumPage() {
               <div className="space-y-2">
                 <h3 className="text-2xl font-bold text-[var(--text-primary)]">Talep Alındı</h3>
                 <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                  Şifre sıfırlama yönergeleri <strong>{email}</strong> adresinize başarıyla gönderildi. Lütfen gelen kutunuzu (ve gereksiz kutusunu) kontrol edin.
+                  <strong>{email}</strong> sistemde kayıtlıysa şifre sıfırlama bağlantısı gönderildi. Bağlantı 1 saat geçerlidir; gelen
+                  kutunuzu (ve gereksiz kutusunu) kontrol edin.
                 </p>
               </div>
             </div>

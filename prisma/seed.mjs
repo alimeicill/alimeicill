@@ -1,6 +1,7 @@
-// Demo site ve kullanıcıları oluşturur: npm run db:seed
-// Kullanıcı kimlikleri src/lib/mock-data.ts ile aynıdır; böylece örnek dairelerin
-// sahipleri (ownerId) gerçek hesaplarla eşleşir. Tekrar çalıştırmak güvenlidir.
+// Demo site, kullanıcılar ve daireleri oluşturur: npm run db:seed
+// Daire ve kişi kimlikleri prisma/demo-data.json'dan (src/lib/mock-data.ts kaynaklı) gelir.
+// Tekrar çalıştırmak güvenlidir.
+import { readFileSync } from 'node:fs';
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 
@@ -14,31 +15,106 @@ const DEMO_PASSWORD = 'Demo2026!';
 
 const TENANT = { id: 'tenant-001', name: 'Yıldız Konakları Sitesi', slug: 'yildiz-konaklari', type: 'SITE', city: 'İstanbul' };
 
-// [id, ad, e-posta, rol, giriş yapabilir mi]
-const USERS = [
-  ['user-admin', 'Platform Yöneticisi', 'admin@demo.apartmanyonet.com', 'SUPER_ADMIN', true],
-  ['user-001', 'Hasan Korkmaz', 'yonetici@demo.apartmanyonet.com', 'SITE_MANAGER', true],
-  ['user-002', 'Zeynep Arslan', 'muhasebe@demo.apartmanyonet.com', 'ACCOUNTANT', true],
-  ['user-staff', 'Murat Usta', 'personel@demo.apartmanyonet.com', 'TECHNICAL_STAFF', true],
+// Giriş yapabilen demo hesapları: [id, ad, e-posta, rol]
+const LOGIN_USERS = [
+  ['user-admin', 'Platform Yöneticisi', 'admin@demo.apartmanyonet.com', 'SUPER_ADMIN'],
+  ['user-001', 'Hasan Korkmaz', 'yonetici@demo.apartmanyonet.com', 'SITE_MANAGER'],
+  ['user-002', 'Zeynep Arslan', 'muhasebe@demo.apartmanyonet.com', 'ACCOUNTANT'],
+  ['user-staff', 'Murat Usta', 'personel@demo.apartmanyonet.com', 'TECHNICAL_STAFF'],
   // A-201 dairesinin maliki: sakin paneli ve genel kurulda oy kullanma demosu.
-  ['user-005', 'Mehmet Demir', 'sakin@demo.apartmanyonet.com', 'OWNER', true],
-  // Diğer malik ve kiracılar (şifresiz; giriş yapamaz).
-  ['user-003', 'Ahmet Yılmaz', 'ahmet.yilmaz@example.com', 'OWNER', false],
-  ['user-004', 'Fatma Kaya', 'fatma.kaya@example.com', 'OWNER', false],
-  ['user-006', 'Ayşe Çelik', 'ayse.celik@example.com', 'TENANT_RESIDENT', false],
-  ['user-007', 'Mustafa Öztürk', 'mustafa.ozturk@example.com', 'OWNER', false],
-  ['user-008', 'Elif Şahin', 'elif.sahin@example.com', 'OWNER', false],
+  ['user-005', 'Mehmet Demir', 'sakin@demo.apartmanyonet.com', 'OWNER'],
 ];
 
+const MOCK_ROLE = { site_manager: 'SITE_MANAGER', accountant: 'ACCOUNTANT', block_rep: 'OWNER', owner: 'OWNER', tenant: 'TENANT_RESIDENT' };
+const STATUS = { occupied: 'OCCUPIED', vacant: 'EMPTY', maintenance: 'RENOVATION' };
+const TYPE = { residential: 'RESIDENTIAL', commercial: 'COMMERCIAL', parking: 'PARKING' };
+
+const demo = JSON.parse(readFileSync(new URL('./demo-data.json', import.meta.url), 'utf8'));
 const prisma = new PrismaClient();
+
 try {
-  await prisma.tenant.upsert({ where: { id: TENANT.id }, create: TENANT, update: { name: TENANT.name } });
+  const t = TENANT.id;
+  await prisma.tenant.upsert({ where: { id: t }, create: TENANT, update: { name: TENANT.name } });
+
+  // Kişiler: örnek veri (e-postasız, girişsiz) + giriş yapabilen demo hesapları.
   const hash = await bcrypt.hash(DEMO_PASSWORD, 10);
-  for (const [id, name, email, role, canLogin] of USERS) {
-    const data = { name, email, role, tenantId: role === 'SUPER_ADMIN' ? null : TENANT.id, passwordHash: canLogin ? hash : null };
+  const loginIds = new Set(LOGIN_USERS.map((u) => u[0]));
+  for (const u of demo.users.filter((u) => !loginIds.has(u.id))) {
+    // Örnek verideki e-postalar gerçek kişilere ait olabilir; aktarılmaz.
+    const data = { name: u.name, email: null, role: MOCK_ROLE[u.role] ?? 'OWNER', tenantId: t };
+    await prisma.user.upsert({ where: { id: u.id }, create: { id: u.id, ...data }, update: data });
+  }
+  for (const [id, name, email, role] of LOGIN_USERS) {
+    const data = { name, email, role, tenantId: role === 'SUPER_ADMIN' ? null : t, passwordHash: hash };
     await prisma.user.upsert({ where: { id }, create: { id, ...data }, update: data });
   }
-  console.log(`Demo hazır: ${USERS.filter((u) => u[4]).length} giriş yapılabilir hesap (şifre bu dosyada).`);
+
+  // Bina ve bloklar
+  const building = await prisma.building.upsert({
+    where: { id: 'building-001' },
+    create: { id: 'building-001', tenantId: t, name: 'Yıldız Konakları' },
+    update: {},
+  });
+  const blockIds = {};
+  for (const name of [...new Set(demo.units.map((u) => u.blockName))]) {
+    const floors = Math.max(...demo.units.filter((u) => u.blockName === name).map((u) => u.floor));
+    const id = `block-${name.split(' ')[0].toLowerCase()}`;
+    await prisma.block.upsert({ where: { id }, create: { id, tenantId: t, buildingId: building.id, name, floorCount: floors }, update: { floorCount: floors } });
+    blockIds[name] = id;
+  }
+
+  // Daireler, malik / kiracı bağları, araç ve evcil hayvanlar
+  for (const u of demo.units) {
+    const data = {
+      tenantId: t,
+      blockId: blockIds[u.blockName],
+      number: u.number,
+      floor: u.floor,
+      type: TYPE[u.type] ?? 'RESIDENTIAL',
+      size: u.areaSqm,
+      shareRatio: u.ownershipShare,
+      rooms: u.rooms ?? null,
+      status: STATUS[u.status] ?? 'EMPTY',
+      emergencyName: u.emergencyName ?? null,
+      emergencyPhone: u.emergencyPhone ?? null,
+    };
+    await prisma.apartment.upsert({ where: { id: u.id }, create: { id: u.id, ...data }, update: data });
+
+    const links = [];
+    if (u.ownerId) links.push([u.ownerId, true]);
+    else if (u.ownerName) {
+      // Örnek veride kimliği olmayan malikler için kişi kaydı açılır.
+      const id = `own-${u.id}`;
+      await prisma.user.upsert({ where: { id }, create: { id, tenantId: t, name: u.ownerName, role: 'OWNER' }, update: { name: u.ownerName } });
+      links.push([id, true]);
+    }
+    if (u.tenantName) {
+      // Kiracı örnek kişi listesinde varsa o kayıt kullanılır, yoksa yeni kişi açılır.
+      const known = demo.users.find((x) => x.name === u.tenantName);
+      const id = known?.id ?? `res-${u.id}`;
+      if (!known) {
+        await prisma.user.upsert({ where: { id }, create: { id, tenantId: t, name: u.tenantName, role: 'TENANT_RESIDENT' }, update: { name: u.tenantName } });
+      }
+      links.push([id, false]);
+    }
+    for (const [userId, isOwner] of links) {
+      await prisma.apartmentUser.upsert({
+        where: { apartmentId_userId: { apartmentId: u.id, userId } },
+        create: { apartmentId: u.id, userId, isOwner },
+        update: { isOwner },
+      });
+    }
+
+    await prisma.vehicle.deleteMany({ where: { apartmentId: u.id } });
+    for (const plate of u.vehicles ?? []) await prisma.vehicle.create({ data: { apartmentId: u.id, plate, type: 'car' } });
+    await prisma.pet.deleteMany({ where: { apartmentId: u.id } });
+    for (const pet of u.pets ?? []) {
+      const m = /^(.*?)\s*\((.*)\)$/.exec(pet);
+      await prisma.pet.create({ data: { apartmentId: u.id, name: m ? m[1] : pet, type: m ? m[2] : 'other' } });
+    }
+  }
+
+  console.log(`Demo hazır: ${demo.units.length} daire, ${LOGIN_USERS.length} giriş yapılabilir hesap (şifre bu dosyada).`);
 } finally {
   await prisma.$disconnect();
 }

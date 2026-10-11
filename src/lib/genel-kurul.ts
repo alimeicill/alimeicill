@@ -1,7 +1,6 @@
 // Kat Mülkiyeti Kanunu (634) uyumlu dijital genel kurul: veri modeli ve yeter sayı hesapları.
 // Bilgilendirme amaçlıdır; hukuki danışmanlık yerine geçmez.
 
-import { mockUnits } from '@/lib/mock-data';
 import type { Unit } from '@/types';
 
 export type DecisionType = 'adi' | 'salt' | 'besteDort' | 'oybirligi';
@@ -71,9 +70,9 @@ export const VOTE_LABELS: Record<VoteChoice, string> = {
   cekimser: 'Çekimser',
 };
 
-/** Oy hakkı olan bağımsız bölümler (sahibi kayıtlı olanlar). */
-export function getVotingUnits(): Unit[] {
-  return mockUnits.filter((u) => !!u.ownerName);
+/** Oy hakkı olan bağımsız bölümler (kat maliki kayıtlı olanlar). */
+export function votingUnits(units: Unit[]): Unit[] {
+  return units.filter((u) => !!u.ownerName);
 }
 
 export interface QuorumResult {
@@ -253,8 +252,8 @@ export const genelKurulApi = {
     }),
 };
 
-export function buildSeedMeetings(): GeneralMeeting[] {
-  const units = getVotingUnits();
+export function buildSeedMeetings(allUnits: Unit[]): GeneralMeeting[] {
+  const units = votingUnits(allUnits);
   const attendance: Record<string, Attendance> = {};
   // İlk 13 daire katılmış durumda; ikisi vekâletle.
   units.slice(0, 13).forEach((u, i) => {

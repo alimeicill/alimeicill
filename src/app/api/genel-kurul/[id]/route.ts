@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { calculateQuorum, getVotingUnits } from '@/lib/genel-kurul';
-import { fail, findMeeting, meetingResponse, requireMeetingUser, serverError, toDto } from '@/lib/genel-kurul-server';
+import { calculateQuorum } from '@/lib/genel-kurul';
+import { fail, findMeeting, meetingResponse, requireMeetingUser, serverError, siteVotingUnits, toDto } from '@/lib/genel-kurul-server';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -19,7 +19,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
     switch (action) {
       case 'start': {
         if (dto.status !== 'planlandi') return fail('Yalnızca planlanmış bir toplantı açılabilir.');
-        const quorum = calculateQuorum(dto, getVotingUnits());
+        const quorum = calculateQuorum(dto, await siteVotingUnits(user.tenantId));
         if (!quorum.met) return fail(`Toplantı yeter sayısı sağlanamadı. Gerekli: ${quorum.required}.`);
         await prisma.generalMeeting.update({ where: { id }, data: { status: 'devam' } });
         break;

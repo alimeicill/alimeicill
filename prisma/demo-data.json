@@ -1,0 +1,479 @@
+{
+  "units": [
+    {
+      "id": "unit-A101",
+      "blockName": "A Blok",
+      "floor": 1,
+      "number": "A-101",
+      "areaSqm": 120,
+      "ownershipShare": 5,
+      "ownerId": "user-003",
+      "ownerName": "Ahmet Yılmaz",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "3+1",
+      "emergencyName": "Canan Yılmaz",
+      "emergencyPhone": "+90 532 999 88 77",
+      "vehicles": [
+        "34 ABC 123"
+      ],
+      "pets": [
+        "Pamuk (Kedi)"
+      ]
+    },
+    {
+      "id": "unit-A102",
+      "blockName": "A Blok",
+      "floor": 1,
+      "number": "A-102",
+      "areaSqm": 95,
+      "ownershipShare": 4,
+      "ownerId": "user-004",
+      "ownerName": "Fatma Kaya",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "2+1",
+      "emergencyName": "Kamil Kaya",
+      "emergencyPhone": "+90 535 777 66 55",
+      "vehicles": [],
+      "pets": []
+    },
+    {
+      "id": "unit-A201",
+      "blockName": "A Blok",
+      "floor": 2,
+      "number": "A-201",
+      "areaSqm": 130,
+      "ownershipShare": 6,
+      "ownerId": "user-005",
+      "ownerName": "Mehmet Demir",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "3+1",
+      "emergencyName": "Selin Demir",
+      "emergencyPhone": "+90 536 888 22 11",
+      "vehicles": [
+        "34 DEF 456"
+      ],
+      "pets": [
+        "Karabaş (Köpek)"
+      ]
+    },
+    {
+      "id": "unit-A202",
+      "blockName": "A Blok",
+      "floor": 2,
+      "number": "A-202",
+      "areaSqm": 110,
+      "ownershipShare": 5,
+      "ownerName": "Kemal Güneş",
+      "tenantName": "Ayşe Çelik",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "2.5+1",
+      "emergencyName": "Mustafa Çelik",
+      "emergencyPhone": "+90 544 555 44 33",
+      "vehicles": [
+        "06 ANK 99"
+      ],
+      "pets": []
+    },
+    {
+      "id": "unit-A301",
+      "blockName": "A Blok",
+      "floor": 3,
+      "number": "A-301",
+      "areaSqm": 140,
+      "ownershipShare": 6,
+      "ownerId": "user-007",
+      "ownerName": "Mustafa Öztürk",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "4+1",
+      "emergencyName": "Emre Öztürk",
+      "emergencyPhone": "+90 533 111 00 22",
+      "vehicles": [
+        "34 XYZ 789",
+        "34 KKM 12"
+      ],
+      "pets": [
+        "Boncuk (Kuş)"
+      ]
+    },
+    {
+      "id": "unit-A302",
+      "blockName": "A Blok",
+      "floor": 3,
+      "number": "A-302",
+      "areaSqm": 100,
+      "ownershipShare": 4,
+      "ownerId": "user-008",
+      "ownerName": "Elif Şahin",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "2+1",
+      "emergencyName": "Metin Şahin",
+      "emergencyPhone": "+90 539 222 33 44",
+      "vehicles": [],
+      "pets": []
+    },
+    {
+      "id": "unit-A401",
+      "blockName": "A Blok",
+      "floor": 4,
+      "number": "A-401",
+      "areaSqm": 155,
+      "ownershipShare": 7,
+      "ownerId": "user-014",
+      "ownerName": "Selin Erdoğan",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "4+1",
+      "emergencyName": "Ahmet Erdoğan",
+      "emergencyPhone": "+90 541 333 44 55",
+      "vehicles": [
+        "34 SSS 55"
+      ],
+      "pets": []
+    },
+    {
+      "id": "unit-A402",
+      "blockName": "A Blok",
+      "floor": 4,
+      "number": "A-402",
+      "areaSqm": 105,
+      "ownershipShare": 5,
+      "ownerName": "Tuğçe Başaran",
+      "status": "vacant",
+      "type": "residential",
+      "rooms": "2+1",
+      "emergencyName": "Veli Başaran",
+      "emergencyPhone": "+90 532 000 11 22",
+      "vehicles": [],
+      "pets": []
+    },
+    {
+      "id": "unit-A501",
+      "blockName": "A Blok",
+      "floor": 5,
+      "number": "A-501",
+      "areaSqm": 180,
+      "ownershipShare": 8,
+      "ownerName": "Oğuz Tanrıverdi",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "4+2 Dupleks",
+      "emergencyName": "Mert Tanrıverdi",
+      "emergencyPhone": "+90 542 777 88 99",
+      "vehicles": [
+        "34 OGZ 99"
+      ],
+      "pets": [
+        "Maviş (Papağan)"
+      ]
+    },
+    {
+      "id": "unit-A502",
+      "blockName": "A Blok",
+      "floor": 5,
+      "number": "A-502",
+      "areaSqm": 115,
+      "ownershipShare": 5,
+      "ownerName": "Derya Avcı",
+      "status": "maintenance",
+      "type": "residential",
+      "rooms": "2+1",
+      "emergencyName": "Ali Avcı",
+      "emergencyPhone": "+90 543 888 77 66",
+      "vehicles": [],
+      "pets": []
+    },
+    {
+      "id": "unit-B101",
+      "blockName": "B Blok",
+      "floor": 1,
+      "number": "B-101",
+      "areaSqm": 85,
+      "ownershipShare": 4,
+      "ownerId": "user-009",
+      "ownerName": "Ali Yıldırım",
+      "status": "occupied",
+      "type": "commercial",
+      "rooms": "Dükkan",
+      "emergencyName": "Hasan Yıldırım",
+      "emergencyPhone": "+90 532 444 33 22",
+      "vehicles": [
+        "34 COM 88"
+      ],
+      "pets": []
+    },
+    {
+      "id": "unit-B102",
+      "blockName": "B Blok",
+      "floor": 1,
+      "number": "B-102",
+      "areaSqm": 90,
+      "ownershipShare": 4,
+      "ownerName": "Hülya Karataş",
+      "tenantName": "Hatice Aydın",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "2+1",
+      "emergencyName": "Murat Aydın",
+      "emergencyPhone": "+90 555 444 33 22",
+      "vehicles": [],
+      "pets": []
+    },
+    {
+      "id": "unit-B201",
+      "blockName": "B Blok",
+      "floor": 2,
+      "number": "B-201",
+      "areaSqm": 125,
+      "ownershipShare": 5,
+      "ownerId": "user-011",
+      "ownerName": "İbrahim Koç",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "3+1",
+      "emergencyName": "Ayşenur Koç",
+      "emergencyPhone": "+90 532 111 00 99",
+      "vehicles": [
+        "34 IBR 10"
+      ],
+      "pets": []
+    },
+    {
+      "id": "unit-B202",
+      "blockName": "B Blok",
+      "floor": 2,
+      "number": "B-202",
+      "areaSqm": 100,
+      "ownershipShare": 5,
+      "ownerId": "user-012",
+      "ownerName": "Merve Aksoy",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "2+1",
+      "emergencyName": "Kenan Aksoy",
+      "emergencyPhone": "+90 533 888 77 66",
+      "vehicles": [
+        "34 MRV 20"
+      ],
+      "pets": [
+        "Tarçın (Kedi)"
+      ]
+    },
+    {
+      "id": "unit-B301",
+      "blockName": "B Blok",
+      "floor": 3,
+      "number": "B-301",
+      "areaSqm": 135,
+      "ownershipShare": 6,
+      "ownerName": "Cenk Yücel",
+      "tenantName": "Emre Polat",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "3+1",
+      "emergencyName": "Filiz Polat",
+      "emergencyPhone": "+90 536 777 55 44",
+      "vehicles": [
+        "34 EMR 30"
+      ],
+      "pets": []
+    },
+    {
+      "id": "unit-B302",
+      "blockName": "B Blok",
+      "floor": 3,
+      "number": "B-302",
+      "areaSqm": 95,
+      "ownershipShare": 4,
+      "ownerName": "Gizem Bayrak",
+      "status": "vacant",
+      "type": "residential",
+      "rooms": "2+1",
+      "emergencyName": "Murat Bayrak",
+      "emergencyPhone": "+90 537 111 22 33",
+      "vehicles": [],
+      "pets": []
+    },
+    {
+      "id": "unit-B401",
+      "blockName": "B Blok",
+      "floor": 4,
+      "number": "B-401",
+      "areaSqm": 150,
+      "ownershipShare": 7,
+      "ownerId": "user-015",
+      "ownerName": "Burak Çetinkaya",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "3+2",
+      "emergencyName": "Aslı Çetinkaya",
+      "emergencyPhone": "+90 541 444 33 22",
+      "vehicles": [
+        "34 BRK 40"
+      ],
+      "pets": []
+    },
+    {
+      "id": "unit-B402",
+      "blockName": "B Blok",
+      "floor": 4,
+      "number": "B-402",
+      "areaSqm": 110,
+      "ownershipShare": 5,
+      "ownerName": "Esra Güler",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "2.5+1",
+      "emergencyName": "Ahmet Güler",
+      "emergencyPhone": "+90 542 555 44 33",
+      "vehicles": [],
+      "pets": []
+    },
+    {
+      "id": "unit-B501",
+      "blockName": "B Blok",
+      "floor": 5,
+      "number": "B-501",
+      "areaSqm": 170,
+      "ownershipShare": 8,
+      "ownerName": "Cem Karaca",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "4+1 Dupleks",
+      "emergencyName": "İlkim Karaca",
+      "emergencyPhone": "+90 543 666 55 44",
+      "vehicles": [
+        "34 CEM 50"
+      ],
+      "pets": []
+    },
+    {
+      "id": "unit-B502",
+      "blockName": "B Blok",
+      "floor": 5,
+      "number": "B-502",
+      "areaSqm": 120,
+      "ownershipShare": 5,
+      "ownerName": "Deniz Soylu",
+      "status": "occupied",
+      "type": "residential",
+      "rooms": "3+1",
+      "emergencyName": "Canan Soylu",
+      "emergencyPhone": "+90 544 777 66 55",
+      "vehicles": [],
+      "pets": []
+    }
+  ],
+  "users": [
+    {
+      "id": "user-001",
+      "name": "Hasan Korkmaz",
+      "email": "hasan.korkmaz@yildizkonaklari.com",
+      "phone": "+90 532 111 22 33",
+      "role": "site_manager"
+    },
+    {
+      "id": "user-002",
+      "name": "Zeynep Arslan",
+      "email": "zeynep.arslan@yildizkonaklari.com",
+      "phone": "+90 533 222 33 44",
+      "role": "accountant"
+    },
+    {
+      "id": "user-003",
+      "name": "Ahmet Yılmaz",
+      "email": "ahmet.yilmaz@gmail.com",
+      "phone": "+90 535 333 44 55",
+      "role": "block_rep"
+    },
+    {
+      "id": "user-004",
+      "name": "Fatma Kaya",
+      "email": "fatma.kaya@hotmail.com",
+      "phone": "+90 536 444 55 66",
+      "role": "owner"
+    },
+    {
+      "id": "user-005",
+      "name": "Mehmet Demir",
+      "email": "mehmet.demir@gmail.com",
+      "phone": "+90 537 555 66 77",
+      "role": "owner"
+    },
+    {
+      "id": "user-006",
+      "name": "Ayşe Çelik",
+      "email": "ayse.celik@outlook.com",
+      "phone": "+90 538 666 77 88",
+      "role": "tenant"
+    },
+    {
+      "id": "user-007",
+      "name": "Mustafa Öztürk",
+      "email": "mustafa.ozturk@gmail.com",
+      "phone": "+90 539 777 88 99",
+      "role": "owner"
+    },
+    {
+      "id": "user-008",
+      "name": "Elif Şahin",
+      "email": "elif.sahin@gmail.com",
+      "phone": "+90 541 888 99 00",
+      "role": "owner"
+    },
+    {
+      "id": "user-009",
+      "name": "Ali Yıldırım",
+      "email": "ali.yildirim@hotmail.com",
+      "phone": "+90 542 999 00 11",
+      "role": "owner"
+    },
+    {
+      "id": "user-010",
+      "name": "Hatice Aydın",
+      "email": "hatice.aydin@gmail.com",
+      "phone": "+90 543 100 11 22",
+      "role": "tenant"
+    },
+    {
+      "id": "user-011",
+      "name": "İbrahim Koç",
+      "email": "ibrahim.koc@outlook.com",
+      "phone": "+90 544 200 22 33",
+      "role": "owner"
+    },
+    {
+      "id": "user-012",
+      "name": "Merve Aksoy",
+      "email": "merve.aksoy@gmail.com",
+      "phone": "+90 545 300 33 44",
+      "role": "owner"
+    },
+    {
+      "id": "user-013",
+      "name": "Emre Polat",
+      "email": "emre.polat@gmail.com",
+      "phone": "+90 546 400 44 55",
+      "role": "tenant"
+    },
+    {
+      "id": "user-014",
+      "name": "Selin Erdoğan",
+      "email": "selin.erdogan@hotmail.com",
+      "phone": "+90 547 500 55 66",
+      "role": "owner"
+    },
+    {
+      "id": "user-015",
+      "name": "Burak Çetinkaya",
+      "email": "burak.cetinkaya@gmail.com",
+      "phone": "+90 548 600 66 77",
+      "role": "owner"
+    }
+  ]
+}
