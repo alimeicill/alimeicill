@@ -3,11 +3,35 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getInitials } from '@/lib/utils';
-import { Search, Mail, Phone, Building2, UserCircle, Plus, LayoutGrid, List } from 'lucide-react';
+import { Search, Mail, Phone, Building2, UserCircle, Plus, LayoutGrid, List, Send, CheckCircle2, Copy, X } from 'lucide-react';
 import type { Unit, User, UserRole } from '@/types';
 import { toast } from 'sonner';
 
 type Resident = User & { unitLabel: string | null; canLogin: boolean };
+type InviteResult = { emailed: boolean; email: string; link: string; expiresInDays: number };
+
+/** Sakinler için "Davet Et" ya da "Giriş aktif"; yönetim hesaplarında yalnızca bilgi. */
+function AccessButton({ user, onInvite, className }: { user: Resident; onInvite: (u: Resident) => void; className: string }) {
+  const isResident = user.role === 'owner' || user.role === 'tenant';
+  if (user.canLogin) {
+    return (
+      <span className={`inline-flex items-center justify-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-500/10 ${className}`}>
+        <CheckCircle2 className="h-3.5 w-3.5" /> Giriş aktif
+      </span>
+    );
+  }
+  if (!isResident) {
+    return <span className={`inline-flex items-center justify-center text-xs font-semibold text-[var(--text-tertiary)] ${className}`}>Yönetim hesabı</span>;
+  }
+  return (
+    <button
+      onClick={() => onInvite(user)}
+      className={`inline-flex items-center justify-center gap-1.5 border border-[var(--border-color)] bg-[var(--bg-tertiary)]/30 hover:bg-primary-500/10 hover:text-primary-500 text-xs font-bold text-[var(--text-secondary)] transition-colors ${className}`}
+    >
+      <Send className="h-3.5 w-3.5" /> Davet Et
+    </button>
+  );
+}
 
 async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
@@ -29,6 +53,38 @@ export default function ResidentsPage() {
   // Sakin eklenince/silinince daire listesindeki malik/kiracı bilgisi de değişir.
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ['residents'] }), queryClient.invalidateQueries({ queryKey: ['units'] })]);
   const [saving, setSaving] = useState(false);
+
+  // Davet penceresi
+  const [inviteTarget, setInviteTarget] = useState<Resident | null>(null);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [inviteResult, setInviteResult] = useState<InviteResult | null>(null);
+
+  const openInvite = (user: Resident) => {
+    setInviteTarget(user);
+    setInviteEmail(user.email ?? '');
+    setInviteResult(null);
+  };
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteTarget) return;
+    setInviting(true);
+    try {
+      // E-posta yeni girildiyse önce sakine kaydedilir.
+      if (inviteEmail.trim().toLowerCase() !== (inviteTarget.email ?? '')) {
+        await apiJson(`/api/yonetici/sakinler/${inviteTarget.id}`, { method: 'PATCH', body: JSON.stringify({ email: inviteEmail }) });
+        await refresh();
+      }
+      const result = await apiJson<InviteResult>(`/api/yonetici/sakinler/${inviteTarget.id}/davet`, { method: 'POST' });
+      setInviteResult(result);
+      toast.success(result.emailed ? `Davet ${result.email} adresine gönderildi.` : 'Davet bağlantısı oluşturuldu.');
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setInviting(false);
+    }
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -291,12 +347,7 @@ export default function ResidentsPage() {
 
                   {/* Actions */}
                   <div className="mt-6 flex gap-2">
-                    <button
-                      onClick={() => alert(`${user.name} için doğrudan mesaj paneli geliştirme aşamasındadır.`)}
-                      className="flex-1 text-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-tertiary)]/30 hover:bg-primary-500/10 hover:text-primary-500 px-4 py-2 text-xs font-bold text-[var(--text-secondary)] transition-colors"
-                    >
-                      Mesaj Gönder
-                    </button>
+                    <AccessButton user={user} onInvite={openInvite} className="flex-1 rounded-xl px-4 py-2" />
                     <button
                       onClick={() => handleDeleteResident(user.id)}
                       className="px-3 text-center rounded-xl bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white py-2 text-xs font-bold transition-all"
@@ -364,12 +415,7 @@ export default function ResidentsPage() {
                           {user.phone || '-'}
                         </td>
                         <td className="p-4 text-right flex justify-end gap-2">
-                          <button
-                            onClick={() => alert(`${user.name} için doğrudan mesaj paneli geliştirme aşamasındadır.`)}
-                            className="rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-primary)] px-2.5 py-1.5 text-xs font-bold text-[var(--text-secondary)] transition-colors"
-                          >
-                            Mesaj Gönder
-                          </button>
+                          <AccessButton user={user} onInvite={openInvite} className="rounded-lg px-2.5 py-1.5" />
                           <button
                             onClick={() => handleDeleteResident(user.id)}
                             className="rounded-lg border border-rose-200 dark:border-rose-900/50 hover:bg-rose-500 hover:text-white px-2.5 py-1.5 text-xs font-bold text-rose-500 transition-colors"
@@ -483,6 +529,83 @@ export default function ResidentsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {inviteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setInviteTarget(null)} />
+          <div role="dialog" aria-modal="true" className="relative w-full max-w-md rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6 shadow-2xl animate-scale-in space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-[var(--text-primary)]">Sakin paneline davet</h3>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
+                  <strong>{inviteTarget.name}</strong> şifresini belirleyerek borçlarını, duyuruları ve genel kurulu görebilir.
+                </p>
+              </div>
+              <button onClick={() => setInviteTarget(null)} aria-label="Kapat" className="rounded-lg p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {!inviteResult ? (
+              <form onSubmit={handleInvite} className="space-y-4">
+                <div className="space-y-1">
+                  <label htmlFor="invite-email" className="text-xs font-semibold text-[var(--text-secondary)]">E-posta adresi</label>
+                  <input
+                    id="invite-email"
+                    type="email"
+                    required
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="sakin@ornek.com"
+                    className="block w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none"
+                  />
+                  <p className="text-[11px] text-[var(--text-tertiary)]">Sakin bu adresle giriş yapacak. Bağlantı 7 gün geçerlidir.</p>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => setInviteTarget(null)} className="rounded-lg border border-[var(--border-color)] px-4 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]">
+                    Vazgeç
+                  </button>
+                  <button type="submit" disabled={inviting} className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow disabled:opacity-60">
+                    <Send className="h-3.5 w-3.5" /> {inviting ? 'Gönderiliyor…' : 'Davet gönder'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-3">
+                <div className={`rounded-lg p-3 text-xs ${inviteResult.emailed ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'}`}>
+                  {inviteResult.emailed
+                    ? `Davet e-postası ${inviteResult.email} adresine gönderildi.`
+                    : 'E-posta gönderimi yapılandırılmadığı için e-posta gitmedi. Aşağıdaki bağlantıyı sakine WhatsApp veya SMS ile iletebilirsiniz.'}
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-[var(--text-secondary)]">Davet bağlantısı ({inviteResult.expiresInDays} gün geçerli)</span>
+                  <div className="flex gap-2">
+                    <input readOnly value={inviteResult.link} onFocus={(e) => e.target.select()} className="min-w-0 flex-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 font-mono text-[11px] text-[var(--text-primary)]" />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(inviteResult.link);
+                          toast.success('Bağlantı kopyalandı.');
+                        } catch {
+                          toast.error('Kopyalanamadı; bağlantıyı seçip elle kopyalayın.');
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-color)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
+                    >
+                      <Copy className="h-3.5 w-3.5" /> Kopyala
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-tertiary)]">Bu bağlantıyla hesaba şifre belirlenebilir; yalnızca sakinin kendisiyle paylaşın.</p>
+                </div>
+                <div className="flex justify-end">
+                  <button onClick={() => setInviteTarget(null)} className="rounded-lg bg-[var(--bg-tertiary)] px-4 py-2 text-xs font-semibold text-[var(--text-primary)]">Tamam</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

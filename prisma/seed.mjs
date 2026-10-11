@@ -41,7 +41,8 @@ try {
   const loginIds = new Set(LOGIN_USERS.map((u) => u[0]));
   for (const u of demo.users.filter((u) => !loginIds.has(u.id))) {
     // Örnek verideki e-postalar gerçek kişilere ait olabilir; aktarılmaz.
-    const data = { name: u.name, email: null, role: MOCK_ROLE[u.role] ?? 'OWNER', tenantId: t };
+    // Örnek kişiler girişsiz başlar (davet akışını denemek için).
+    const data = { name: u.name, email: null, passwordHash: null, role: MOCK_ROLE[u.role] ?? 'OWNER', tenantId: t };
     await prisma.user.upsert({ where: { id: u.id }, create: { id: u.id, ...data }, update: data });
   }
   for (const [id, name, email, role] of LOGIN_USERS) {

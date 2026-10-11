@@ -4,7 +4,9 @@ import { SESSION_COOKIE, verifySession } from '@/lib/auth/token';
 
 // Oturum gerektirmeyen API uçları (giriş, kayıt, şifre sıfırlama). Cron kendi gizli anahtarıyla korunur.
 const PUBLIC_API = ['/api/auth/', '/api/cron/'];
-const AUTH_PAGES = ['/giris', '/kayit', '/sifremi-unuttum', '/sifre-sifirla'];
+// Giriş yapmış kullanıcı bu sayfalardan paneline yönlendirilir. /sifre-sifirla (davet ve sıfırlama
+// bağlantısı) bilerek dışarıda: başka bir hesap açıkken de bağlantı çalışmalı.
+const AUTH_PAGES = ['/giris', '/kayit', '/sifremi-unuttum'];
 
 /**
  * İyimser kontrol: yalnızca imzalı çerezi okur. Asıl yetki kontrolü

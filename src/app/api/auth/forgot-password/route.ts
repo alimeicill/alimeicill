@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { appUrl, mailConfigured, sendMail } from '@/lib/server/mailer';
+import { createPasswordToken } from '@/lib/server/password-tokens';
 import { recordFailure, tooManyAttempts } from '@/lib/auth/throttle';
 
 const Schema = z.object({ email: z.string().trim().toLowerCase().email('Geçerli bir e-posta adresi girin.') });
@@ -24,18 +24,7 @@ export async function POST(request: Request) {
   const user = await prisma.user.findUnique({ where: { email }, select: { id: true, name: true, isActive: true, passwordHash: true } });
   if (!user || !user.isActive || !user.passwordHash) return NextResponse.json(GENERIC);
 
-  const token = randomBytes(32).toString('base64url');
-  await prisma.$transaction([
-    // Önceki kullanılmamış bağlantılar geçersiz olur.
-    prisma.passwordResetToken.deleteMany({ where: { userId: user.id, usedAt: null } }),
-    prisma.passwordResetToken.create({
-      data: {
-        userId: user.id,
-        tokenHash: createHash('sha256').update(token).digest('hex'),
-        expiresAt: new Date(Date.now() + TOKEN_MINUTES * 60 * 1000),
-      },
-    }),
-  ]);
+  const token = await createPasswordToken(user.id, TOKEN_MINUTES);
 
   const link = `${appUrl(request)}/sifre-sifirla?token=${token}`;
   if (!mailConfigured()) {

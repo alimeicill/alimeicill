@@ -15,7 +15,10 @@ export default function SifreSifirlaPage() {
 }
 
 function ResetForm() {
-  const token = useSearchParams().get('token') ?? '';
+  const params = useSearchParams();
+  const token = params.get('token') ?? '';
+  // Yöneticinin gönderdiği davet bağlantısı mı, şifre sıfırlama mı?
+  const isInvite = params.get('davet') === '1';
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
@@ -69,8 +72,12 @@ function ResetForm() {
               <CheckCircle2 className="h-8 w-8" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-[var(--text-primary)]">Şifreniz güncellendi</h2>
-              <p className="text-sm text-[var(--text-secondary)]">Yeni şifrenizle giriş yapabilirsiniz. Diğer cihazlardaki açık oturumlar kapatıldı.</p>
+              <h2 className="text-2xl font-bold text-[var(--text-primary)]">{isInvite ? 'Hesabınız etkinleştirildi' : 'Şifreniz güncellendi'}</h2>
+              <p className="text-sm text-[var(--text-secondary)]">
+                {isInvite
+                  ? 'E-posta adresiniz ve belirlediğiniz şifreyle giriş yapabilirsiniz.'
+                  : 'Yeni şifrenizle giriş yapabilirsiniz. Diğer cihazlardaki açık oturumlar kapatıldı.'}
+              </p>
             </div>
             <Link
               href="/giris"
@@ -93,8 +100,11 @@ function ResetForm() {
         ) : (
           <>
             <div>
-              <h2 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Yeni şifre belirleyin</h2>
-              <p className="mt-2 text-sm text-[var(--text-secondary)]">En az 8 karakter; harf ve rakam içermelidir.</p>
+              <h2 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">{isInvite ? 'Hesabınızı etkinleştirin' : 'Yeni şifre belirleyin'}</h2>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                {isInvite ? 'Site yönetiminiz sizi sakin paneline davet etti. Giriş için bir şifre belirleyin: ' : ''}En az 8 karakter; harf ve
+                rakam içermelidir.
+              </p>
             </div>
             <form onSubmit={handleSubmit} className="space-y-5">
               {[
@@ -144,7 +154,7 @@ function ResetForm() {
                 disabled={isLoading}
                 className="flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-primary-600 to-indigo-700 py-3.5 text-sm font-bold text-white shadow-md disabled:opacity-50"
               >
-                {isLoading ? 'Kaydediliyor...' : 'Şifremi Güncelle'}
+                {isLoading ? 'Kaydediliyor...' : isInvite ? 'Şifremi Belirle' : 'Şifremi Güncelle'}
               </button>
             </form>
           </>
