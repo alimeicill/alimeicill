@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { D } from '@/lib/server/money';
 import { GecikmeFaiziEngine } from '@/lib/services/finance-engine';
 import { DueStatus } from '@prisma/client';
 
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
 
     // 3. Process each overdue due in a Prisma transaction batch
     const updates = overdueDues.map((due) => {
-      const remainingAmount = due.amount - due.paidAmount;
+      const remainingAmount = D(due.amount).sub(due.paidAmount).toNumber();
       
       // Calculate dynamic daily late interest (5% monthly yasal KMK rate)
       const interestResult = GecikmeFaiziEngine.faizHesapla(

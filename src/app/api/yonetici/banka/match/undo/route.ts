@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireManager } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
+import { revertFromDue } from '@/lib/server/dues';
+import { D } from '@/lib/server/money';
 import { BankMovementStatus, DueStatus } from '@prisma/client';
 
 export async function POST(req: Request) {
@@ -40,24 +42,7 @@ export async function POST(req: Request) {
     await prisma.$transaction(async (tx) => {
       if (linkedPayment) {
         if (linkedPayment.dueId) {
-          const due = await tx.due.findUnique({
-            where: { id: linkedPayment.dueId }
-          });
-
-          if (due) {
-            // Revert due amounts
-            const revertedPaidAmount = Math.max(0, due.paidAmount - linkedPayment.amount);
-            const isRevertedToPending = revertedPaidAmount <= 0;
-
-            await tx.due.update({
-              where: { id: due.id },
-              data: {
-                paidAmount: revertedPaidAmount,
-                status: isRevertedToPending ? DueStatus.PENDING : DueStatus.PARTIAL,
-                paidAt: null
-              }
-            });
-          }
+          await revertFromDue(tx, linkedPayment.dueId, D(linkedPayment.amount));
         }
 
         // Delete the payment record

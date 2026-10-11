@@ -115,6 +115,49 @@ try {
     }
   }
 
+  // Örnek aidatlar: son üç ay (sitede hiç borç kaydı yoksa). En eski ay ödenmiş, ortadaki kısmen, son ay açık.
+  if ((await prisma.due.count({ where: { tenantId: t } })) === 0) {
+    const now = new Date();
+    const periods = [2, 1, 0].map((back) => {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - back, 1));
+      return { key: d.toISOString().slice(0, 7), due: new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 15)) };
+    });
+    for (const [pi, p] of periods.entries()) {
+      for (const [ui, u] of demo.units.entries()) {
+        const amount = Math.round(u.ownershipShare * 400 * 100) / 100; // arsa payı × 400 ₺
+        const paidAll = pi === 0 || (pi === 1 && ui % 3 !== 0);
+        const due = await prisma.due.create({
+          data: {
+            tenantId: t,
+            apartmentId: u.id,
+            type: 'MANAGEMENT',
+            period: p.key,
+            description: 'Aidat',
+            amount,
+            dueDate: p.due,
+            status: paidAll ? 'PAID' : 'PENDING',
+            paidAmount: paidAll ? amount : 0,
+            paidAt: paidAll ? new Date(p.due.getTime() - 3 * 86400000) : null,
+          },
+        });
+        if (paidAll) {
+          await prisma.payment.create({
+            data: {
+              tenantId: t,
+              dueId: due.id,
+              apartmentId: u.id,
+              amount,
+              method: ui % 2 ? 'BANK_TRANSFER' : 'CASH',
+              status: 'COMPLETED',
+              receiptNo: `DEMO-${p.key}-${u.id}`,
+              paidAt: new Date(p.due.getTime() - 3 * 86400000),
+            },
+          });
+        }
+      }
+    }
+  }
+
   console.log(`Demo hazır: ${demo.units.length} daire, ${LOGIN_USERS.length} giriş yapılabilir hesap (şifre bu dosyada).`);
 } finally {
   await prisma.$disconnect();

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireManager } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
+import { applyToDue } from '@/lib/server/dues';
+import { D } from '@/lib/server/money';
 import { ReconciliationEngine } from '@/lib/services/reconciliation-engine';
 import { BankMovementStatus, DueStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
 
@@ -84,19 +86,8 @@ export async function POST(req: Request) {
 
           if (oldestDue) {
             linkedDueId = oldestDue.id;
-            const remaining = oldestDue.amount - oldestDue.paidAmount;
-            const paymentApplied = Math.min(remaining, movement.amount);
-            const isFullyPaid = paymentApplied >= remaining;
-
-            // 1. Update Due record
-            await tx.due.update({
-              where: { id: oldestDue.id },
-              data: {
-                paidAmount: oldestDue.paidAmount + paymentApplied,
-                status: isFullyPaid ? DueStatus.PAID : DueStatus.PARTIAL,
-                paidAt: isFullyPaid ? new Date() : null
-              }
-            });
+            // 1. Borca uygula (kalan tutarı aşmaz)
+            const paymentApplied = await applyToDue(tx, oldestDue.id, D(movement.amount));
 
             // 2. Create Payment record
             await tx.payment.create({
@@ -201,18 +192,7 @@ export async function PUT(req: Request) {
       if (dueId) {
         const due = await tx.due.findUnique({ where: { id: dueId } });
         if (due) {
-          const remaining = due.amount - due.paidAmount;
-          const paymentApplied = Math.min(remaining, movement.amount);
-          const isFullyPaid = paymentApplied >= remaining;
-
-          await tx.due.update({
-            where: { id: dueId },
-            data: {
-              paidAmount: due.paidAmount + paymentApplied,
-              status: isFullyPaid ? DueStatus.PAID : DueStatus.PARTIAL,
-              paidAt: isFullyPaid ? new Date() : null
-            }
-          });
+          const paymentApplied = await applyToDue(tx, dueId, D(movement.amount));
 
           await tx.payment.create({
             data: {
@@ -240,18 +220,7 @@ export async function PUT(req: Request) {
 
         if (oldestDue) {
           targetDueId = oldestDue.id;
-          const remaining = oldestDue.amount - oldestDue.paidAmount;
-          const paymentApplied = Math.min(remaining, movement.amount);
-          const isFullyPaid = paymentApplied >= remaining;
-
-          await tx.due.update({
-            where: { id: oldestDue.id },
-            data: {
-              paidAmount: oldestDue.paidAmount + paymentApplied,
-              status: isFullyPaid ? DueStatus.PAID : DueStatus.PARTIAL,
-              paidAt: isFullyPaid ? new Date() : null
-            }
-          });
+          const paymentApplied = await applyToDue(tx, oldestDue.id, D(movement.amount));
 
           await tx.payment.create({
             data: {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireManager } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
+import { D } from '@/lib/server/money';
 import { BorclandirmaEngine, DistributionType, Daire } from '@/lib/services/finance-engine';
 import { DueType, DueStatus } from '@prisma/client';
 
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
       })
     );
 
-    const totalAmount = createdDues.reduce((sum, d) => sum + d.amount, 0);
+    const totalAmount = createdDues.reduce((sum, d) => sum.add(d.amount), D(0)).toNumber();
 
     return NextResponse.json({
       success: true,

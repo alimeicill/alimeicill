@@ -1,63 +1,115 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { mockInvoices, mockUnits } from '@/lib/mock-data';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { Unit } from '@/types';
 import { formatCurrency, formatPeriod, getStatusColor, formatDate } from '@/lib/utils';
-import { Search, Plus, Filter, ArrowLeft, Calendar, FileText, X, Download } from 'lucide-react';
+import { Search, Plus, Filter, ArrowLeft, Calendar, FileText, X, Download, Wallet, Ban } from 'lucide-react';
 import { toast } from 'sonner';
 
+// Sunucudan gelen borç kaydı (gecikme tazminatı sunucuda hesaplanır).
+type InvoiceRow = {
+  id: string;
+  unitId: string;
+  unitNumber: string;
+  blockName: string;
+  ownerName: string;
+  period: string;
+  description: string;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  lateFee: number;
+  status: 'sent' | 'partial' | 'paid' | 'overdue' | 'cancelled';
+  dueDate: string;
+  createdAt: string;
+};
+
+async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'İşlem tamamlanamadı.');
+  return data as T;
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<typeof mockInvoices>([]);
+  const queryClient = useQueryClient();
+  const { data: invoices = [], isLoading, error: loadError } = useQuery<InvoiceRow[]>({
+    queryKey: ['invoices', 'manager'],
+    queryFn: () => apiJson<InvoiceRow[]>('/api/yonetici/aidat'),
+  });
+  const { data: units = [] } = useQuery<Unit[]>({
+    queryKey: ['units', 'manager'],
+    queryFn: () => apiJson<Unit[]>('/api/yonetici/daireler'),
+  });
+  const refreshInvoices = () => queryClient.invalidateQueries({ queryKey: ['invoices'] });
+  const [saving, setSaving] = useState(false);
+
+  // Tahsilat penceresi
+  const [payTarget, setPayTarget] = useState<InvoiceRow | null>(null);
+  const [payAmount, setPayAmount] = useState('');
+  const [payMethod, setPayMethod] = useState<'CASH' | 'BANK_TRANSFER' | 'CREDIT_CARD'>('BANK_TRANSFER');
+  const [payDate, setPayDate] = useState(today());
+  const [payNotes, setPayNotes] = useState('');
+
+  const openPayment = (inv: InvoiceRow) => {
+    setPayTarget(inv);
+    setPayAmount(String(inv.remainingAmount));
+    setPayMethod('BANK_TRANSFER');
+    setPayDate(today());
+    setPayNotes('');
+  };
+
+  const handlePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payTarget) return;
+    setSaving(true);
+    try {
+      await apiJson(`/api/yonetici/aidat/${payTarget.id}/odeme`, {
+        method: 'POST',
+        body: JSON.stringify({ amount: payAmount.replace(',', '.'), method: payMethod, paidAt: payDate, notes: payNotes }),
+      });
+      await refreshInvoices();
+      toast.success(`Daire ${payTarget.unitNumber} için ${formatCurrency(Number(payAmount.replace(',', '.')))} tahsilat kaydedildi.`);
+      setPayTarget(null);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = async (inv: InvoiceRow) => {
+    if (!window.confirm(`Daire ${inv.unitNumber} - ${formatPeriod(inv.period)} ${inv.description} borcu iptal edilsin mi?`)) return;
+    try {
+      await apiJson(`/api/yonetici/aidat/${inv.id}`, { method: 'DELETE' });
+      await refreshInvoices();
+      toast.success('Borç iptal edildi.');
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState('all');
 
-  useEffect(() => {
-    const saved = localStorage.getItem('invoices_list');
-    if (saved) {
-      setInvoices(JSON.parse(saved));
-    } else {
-      localStorage.setItem('invoices_list', JSON.stringify(mockInvoices));
-      setInvoices(mockInvoices);
-    }
-  }, []);
-
-  const saveInvoices = (newInvs: typeof mockInvoices) => {
-    setInvoices(newInvs);
-    localStorage.setItem('invoices_list', JSON.stringify(newInvs));
-    window.dispatchEvent(new Event('storage'));
-  };
 
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedUnitId, setSelectedUnitId] = useState('all');
-  const [period, setPeriod] = useState('2026-07');
+  const [period, setPeriod] = useState(() => new Date().toISOString().slice(0, 7));
   const [amount, setAmount] = useState('');
-  const [dueDate, setDueDate] = useState('2026-07-15');
+  const [dueDate, setDueDate] = useState(() => `${new Date().toISOString().slice(0, 7)}-15`);
   const [description, setDescription] = useState('Aidat');
 
   // Advanced calculation method states
   const [calcMethod, setCalcMethod] = useState<'fixed' | 'equal' | 'area' | 'share'>('fixed');
 
-  // Helper to calculate dynamic late interest (daily interest based on 5% monthly rate)
-  const calculateLateInterest = (inv: typeof mockInvoices[0]) => {
-    const remaining = inv.totalAmount - inv.paidAmount;
-    if (remaining <= 0 || inv.status === 'paid' || inv.status === 'cancelled') return 0;
-    
-    const dueTime = new Date(inv.dueDate).getTime();
-    const nowTime = new Date().getTime();
-    if (nowTime <= dueTime) return 0;
-
-    const daysOverdue = Math.floor((nowTime - dueTime) / (1000 * 60 * 60 * 24));
-    if (daysOverdue <= 0) return 0;
-
-    const monthlyInterestRate = 0.05; // 5% per month
-    const dailyInterestRate = monthlyInterestRate / 30; // 0.167% daily
-    
-    // Round to 2 decimals
-    return Math.round(remaining * dailyInterestRate * daysOverdue * 100) / 100;
-  };
+  // Gecikme tazminatı (KMK md. 20, aylık %5) sunucuda güncel tarihe göre hesaplanır.
+  const calculateLateInterest = (inv: InvoiceRow) => inv.lateFee;
 
   // Unique periods for filter
   const periods = useMemo(() => {
@@ -92,9 +144,9 @@ export default function InvoicesPage() {
     });
   }, [invoices, searchTerm, statusFilter, periodFilter]);
 
-  const handleAddInvoice = (e: React.FormEvent) => {
+  const handleAddInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0) {
+    if (!amount || Number(amount.replace(',', '.')) <= 0) {
       toast.error('Lütfen geçerli bir tutar giriniz.');
       return;
     }
@@ -103,78 +155,33 @@ export default function InvoicesPage() {
       return;
     }
 
-    if (selectedUnitId === 'all') {
-      let totalShares = mockUnits.reduce((sum, u) => sum + (u.ownershipShare || 0), 0) || 100;
-      
-      const newInvoices = mockUnits.map((unit, index) => {
-        let calculatedAmount = Number(amount);
-        
-        if (calcMethod === 'equal') {
-          calculatedAmount = Number(amount) / mockUnits.length;
-        } else if (calcMethod === 'area') {
-          calculatedAmount = Number(amount) * (unit.areaSqm || 100);
-        } else if (calcMethod === 'share') {
-          calculatedAmount = (Number(amount) * (unit.ownershipShare || 5)) / totalShares;
-        }
-
-        // Round to 2 decimals
-        calculatedAmount = Math.round(calculatedAmount * 100) / 100;
-
-        return {
-          id: `inv-${Date.now()}-${index}`,
-          tenantId: 'tenant-001',
-          unitId: unit.id,
-          unitNumber: unit.number,
-          ownerName: unit.tenantName || unit.ownerName || 'Bilinmeyen Sakin',
+    setSaving(true);
+    try {
+      const result = await apiJson<{ created: number; skipped: number; total: number }>('/api/yonetici/aidat', {
+        method: 'POST',
+        body: JSON.stringify({
+          unitId: selectedUnitId,
           period,
-          totalAmount: calculatedAmount,
-          paidAmount: 0,
-          status: 'sent' as const,
+          amount: amount.replace(',', '.'),
           dueDate,
-          createdAt: new Date().toISOString(),
-          items: [
-            {
-              id: `ii-${Math.random().toString(36).substring(7)}`,
-              description: `${description} (${calcMethod === 'equal' ? 'Eşit Dağıtılan' : calcMethod === 'area' ? 'm² Bazlı' : calcMethod === 'share' ? 'Arsa Paylı' : 'Sabit'})`,
-              amount: calculatedAmount,
-              type: 'charge' as const
-            }
-          ]
-        };
+          description,
+          method: selectedUnitId === 'all' ? calcMethod : 'fixed',
+        }),
       });
-
-      saveInvoices([...newInvoices, ...invoices]);
-      toast.success(`${newInvoices.length} daire için ${calcMethod === 'equal' ? 'Eşit Dağıtımlı' : calcMethod === 'area' ? 'm² Bazlı' : calcMethod === 'share' ? 'Arsa Payı Bazlı' : 'Toplu'} ${description} tahakkuku oluşturuldu.`);
-    } else {
-      const unit = mockUnits.find(u => u.id === selectedUnitId);
-      if (!unit) return;
-
-      const calculatedAmount = Math.round(Number(amount) * 100) / 100;
-
-      const newInvoice = {
-        id: `inv-${Date.now()}`,
-        tenantId: 'tenant-001',
-        unitId: selectedUnitId,
-        unitNumber: unit.number,
-        ownerName: unit.tenantName || unit.ownerName || 'Bilinmeyen Sakin',
-        period,
-        totalAmount: calculatedAmount,
-        paidAmount: 0,
-        status: 'sent' as const,
-        dueDate,
-        createdAt: new Date().toISOString(),
-        items: [
-          {
-            id: `ii-${Math.random().toString(36).substring(7)}`,
-            description,
-            amount: calculatedAmount,
-            type: 'charge' as const
-          }
-        ]
-      };
-
-      saveInvoices([newInvoice, ...invoices]);
-      toast.success(`${unit.number} dairesi için ${formatCurrency(calculatedAmount)} tutarında ${description} oluşturuldu.`);
+      await refreshInvoices();
+      if (result.created === 0) {
+        toast.warning(`Yeni borç yazılmadı: seçilen dairelerde ${formatPeriod(period)} dönemi için "${description}" zaten tahakkuk etmiş.`);
+      } else {
+        toast.success(
+          `${result.created} daire için toplam ${formatCurrency(result.total)} ${description} tahakkuku oluşturuldu.` +
+            (result.skipped ? ` ${result.skipped} dairede bu dönem zaten borçlandırıldığı için atlandı.` : ''),
+        );
+      }
+    } catch (err) {
+      toast.error((err as Error).message);
+      return;
+    } finally {
+      setSaving(false);
     }
     setIsAddModalOpen(false);
     setAmount('');
@@ -185,9 +192,9 @@ export default function InvoicesPage() {
     toast.success('Aidat ve Borç raporu Excel (CSV) dosyası olarak indiriliyor...');
     const headerRow = 'Belge No,Daire,Sakin,Dönem,Tutar,Ödenen,Kalan,Gecikme Faizi,Toplam Bakiye,Son Ödeme,Durum\n';
     const csvContent = invoices.map(inv => {
-      const remaining = inv.totalAmount - inv.paidAmount;
+      const remaining = inv.remainingAmount;
       const interest = calculateLateInterest(inv);
-      return `"${inv.id}","${inv.unitNumber}","${inv.ownerName}","${inv.period}",${inv.totalAmount},${inv.paidAmount},${remaining},${interest},${remaining + interest},"${inv.dueDate}","${inv.status}"`;
+      return `"${inv.id}","${inv.unitNumber}","${inv.ownerName}","${inv.period}",${inv.totalAmount},${inv.paidAmount},${remaining},${interest},${Math.round((remaining + interest) * 100) / 100},"${inv.dueDate}","${inv.status}"`;
     }).join('\n');
     
     const link = document.createElement('a');
@@ -306,26 +313,27 @@ export default function InvoicesPage() {
                 <th className="p-4">Toplam Bakiye</th>
                 <th className="p-4">Son Ödeme</th>
                 <th className="p-4 text-center">Durum</th>
+                <th className="p-4 text-right">İşlem</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-color)] text-sm">
               {filteredInvoices.length === 0 ? (
                 <tr>
                   <td colSpan={13} className="py-12 text-center text-sm text-[var(--text-tertiary)]">
-                    Kriterlere uygun aidat/borç kaydı bulunamadı.
+                    {isLoading ? 'Borç kayıtları yükleniyor…' : loadError ? `Borç kayıtları yüklenemedi: ${(loadError as Error).message}` : 'Kriterlere uygun aidat/borç kaydı bulunamadı.'}
                   </td>
                 </tr>
               ) : (
                 filteredInvoices.map((invoice) => {
-                  const remaining = invoice.totalAmount - invoice.paidAmount;
+                  const remaining = invoice.remainingAmount;
                   const interest = calculateLateInterest(invoice);
                   return (
                     <tr 
                       key={invoice.id} 
                       className="group transition-colors duration-150 hover:bg-[var(--bg-tertiary)]/20"
                     >
-                      <td className="p-4 font-mono text-xs text-[var(--text-secondary)]">
-                        {invoice.id}
+                      <td className="p-4 font-mono text-xs text-[var(--text-secondary)]" title={invoice.id}>
+                        {invoice.id.slice(-8).toUpperCase()}
                       </td>
                       <td className="p-4 font-semibold text-[var(--text-primary)]">
                         {invoice.unitNumber}
@@ -359,6 +367,9 @@ export default function InvoicesPage() {
                           {getStatusLabel(invoice.status)}
                         </span>
                       </td>
+                      <td className="p-4 text-right whitespace-nowrap">
+                        <RowActions invoice={invoice} onPay={openPayment} onCancel={handleCancel} />
+                      </td>
                     </tr>
                   );
                 })
@@ -375,7 +386,7 @@ export default function InvoicesPage() {
             </div>
           ) : (
             filteredInvoices.map((invoice) => {
-              const remaining = invoice.totalAmount - invoice.paidAmount;
+              const remaining = invoice.remainingAmount;
               return (
                 <div key={invoice.id} className="py-4 space-y-2">
                   <div className="flex items-center justify-between">
@@ -395,6 +406,9 @@ export default function InvoicesPage() {
                     <span className="text-sm font-bold text-[var(--text-primary)]">
                       {formatCurrency(invoice.totalAmount)} / <span className={remaining > 0 ? 'text-rose-500' : 'text-emerald-500'}>{formatCurrency(remaining)}</span>
                     </span>
+                  </div>
+                  <div className="flex justify-end pt-1">
+                    <RowActions invoice={invoice} onPay={openPayment} onCancel={handleCancel} />
                   </div>
                 </div>
               );
@@ -438,9 +452,9 @@ export default function InvoicesPage() {
                   className="block w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   <option value="all">Tüm Daireler (Toplu Aidat)</option>
-                  {mockUnits.map(unit => (
+                  {units.map(unit => (
                     <option key={unit.id} value={unit.id}>
-                      {unit.number} - {unit.tenantName || unit.ownerName}
+                      {unit.number} - {unit.tenantName || unit.ownerName || 'Sakin yok'}
                     </option>
                   ))}
                 </select>
@@ -536,14 +550,91 @@ export default function InvoicesPage() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:from-indigo-600 hover:to-indigo-700"
+                  disabled={saving}
+                  className="rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:from-indigo-600 hover:to-indigo-700 disabled:opacity-60"
                 >
-                  Tahakkuk Oluştur
+                  {saving ? 'Oluşturuluyor…' : 'Tahakkuk Oluştur'}
                 </button>
               </div>
             </form>
           </div>
         </div>
+      )}
+
+      {payTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setPayTarget(null)} />
+          <div role="dialog" aria-modal="true" className="relative w-full max-w-md rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] shadow-2xl animate-scale-in">
+            <div className="flex items-center justify-between border-b border-[var(--border-color)] px-6 py-4">
+              <div>
+                <h3 className="text-lg font-bold text-[var(--text-primary)]">Tahsilat Kaydı</h3>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Daire {payTarget.unitNumber} · {payTarget.ownerName} · {formatPeriod(payTarget.period)} {payTarget.description}
+                </p>
+              </div>
+              <button onClick={() => setPayTarget(null)} aria-label="Kapat" className="rounded-lg p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handlePayment} className="space-y-4 p-6">
+              <div className="grid grid-cols-2 gap-3 rounded-xl bg-[var(--bg-primary)] p-3 text-xs">
+                <div>
+                  <div className="text-[var(--text-tertiary)]">Kalan borç</div>
+                  <div className="font-bold text-rose-600">{formatCurrency(payTarget.remainingAmount)}</div>
+                </div>
+                <div>
+                  <div className="text-[var(--text-tertiary)]">Gecikme tazminatı</div>
+                  <div className="font-bold text-[var(--text-primary)]">{formatCurrency(payTarget.lateFee)}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label htmlFor="pay-amount" className="text-xs font-semibold text-[var(--text-secondary)]">Tutar (₺)</label>
+                  <input id="pay-amount" required inputMode="decimal" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} className="block w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none" />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="pay-date" className="text-xs font-semibold text-[var(--text-secondary)]">Ödeme tarihi</label>
+                  <input id="pay-date" type="date" required max={today()} value={payDate} onChange={(e) => setPayDate(e.target.value)} className="block w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="pay-method" className="text-xs font-semibold text-[var(--text-secondary)]">Ödeme yöntemi</label>
+                <select id="pay-method" value={payMethod} onChange={(e) => setPayMethod(e.target.value as typeof payMethod)} className="block w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none">
+                  <option value="BANK_TRANSFER">Havale / EFT</option>
+                  <option value="CASH">Nakit</option>
+                  <option value="CREDIT_CARD">Kredi kartı (POS)</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="pay-notes" className="text-xs font-semibold text-[var(--text-secondary)]">Not (isteğe bağlı)</label>
+                <input id="pay-notes" value={payNotes} onChange={(e) => setPayNotes(e.target.value)} placeholder="Örn: dekont no" className="block w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none" />
+              </div>
+              <p className="text-[11px] text-[var(--text-tertiary)]">Tahsilat kalan borcu aşamaz. Gecikme tazminatı ayrıca tahakkuk ettirilmelidir.</p>
+              <div className="flex justify-end gap-3 border-t border-[var(--border-color)] pt-3">
+                <button type="button" onClick={() => setPayTarget(null)} className="rounded-xl px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]">Vazgeç</button>
+                <button type="submit" disabled={saving} className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-sm disabled:opacity-60">
+                  {saving ? 'Kaydediliyor…' : 'Tahsilatı Kaydet'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RowActions({ invoice, onPay, onCancel }: { invoice: InvoiceRow; onPay: (i: InvoiceRow) => void; onCancel: (i: InvoiceRow) => void }) {
+  if (invoice.status === 'paid' || invoice.status === 'cancelled') return <span className="text-xs text-[var(--text-tertiary)]">—</span>;
+  return (
+    <div className="inline-flex gap-1.5">
+      <button onClick={() => onPay(invoice)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 py-1.5 text-xs font-bold text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors">
+        <Wallet className="h-3.5 w-3.5" /> Tahsilat
+      </button>
+      {invoice.paidAmount === 0 && (
+        <button onClick={() => onCancel(invoice)} title="Borcu iptal et" aria-label="Borcu iptal et" className="inline-flex items-center rounded-lg px-2 py-1.5 text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-colors">
+          <Ban className="h-3.5 w-3.5" />
+        </button>
       )}
     </div>
   );
