@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
+import { requireManager } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { ReconciliationEngine } from '@/lib/services/reconciliation-engine';
 import { BankMovementStatus, DueStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
 
 export async function POST(req: Request) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const body = await req.json();
-    const { tenantId } = body;
 
-    if (!tenantId) {
-      return NextResponse.json({ error: 'tenantId gereklidir.' }, { status: 400 });
-    }
 
     // 1. Fetch unmatched bank movements
     const unmatchedMovements = await prisma.bankMovement.findMany({
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
 
     // 2. Fetch all active residents and apartments for matching context
     const users = await prisma.user.findMany({
-      where: { tenantId: tenantId || undefined },
+      where: { tenantId },
       include: {
         apartments: true
       }
@@ -160,6 +160,9 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const body = await req.json();
     const { movementId, apartmentId, dueId } = body;
@@ -168,12 +171,20 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'movementId ve apartmentId gereklidir.' }, { status: 400 });
     }
 
-    const movement = await prisma.bankMovement.findUnique({
-      where: { id: movementId }
+    const movement = await prisma.bankMovement.findFirst({
+      where: { id: movementId, tenantId }
     });
 
     if (!movement) {
       return NextResponse.json({ error: 'Banka hareketi bulunamadı.' }, { status: 404 });
+    }
+    // Daire ve borç da bu siteye ait olmalı.
+    const apartment = await prisma.apartment.findFirst({ where: { id: apartmentId, tenantId }, select: { id: true } });
+    if (!apartment) {
+      return NextResponse.json({ error: 'Daire bulunamadı.' }, { status: 404 });
+    }
+    if (dueId && !(await prisma.due.findFirst({ where: { id: dueId, tenantId }, select: { id: true } }))) {
+      return NextResponse.json({ error: 'Borç kaydı bulunamadı.' }, { status: 404 });
     }
 
     // Daire sakin bilgilerini bul

@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
+import { requireManager } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 
-const DEFAULT_TENANT_ID = 'tenant-001';
-
 export async function GET(request: Request) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get('tenantId') || DEFAULT_TENANT_ID;
 
     // Fetch all current account invoices with their cari details
     const invoices = await prisma.cariFatura.findMany({
@@ -35,6 +36,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const body = await request.json();
     const { 
@@ -45,9 +49,7 @@ export async function POST(request: Request) {
       netAmount, 
       taxAmount, 
       totalAmount, 
-      description,
-      tenantId = DEFAULT_TENANT_ID 
-    } = body;
+      description } = body;
 
     // Validations
     if (!cariHesapId || !invoiceNo || !invoiceDate || !documentType || netAmount === undefined || taxAmount === undefined || totalAmount === undefined || !description) {

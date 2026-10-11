@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
 import { useUIStore } from '@/stores/ui';
+import { useCurrentUser } from '@/lib/auth/use-current-user';
 
 interface NavItem {
   href?: string;
@@ -126,7 +127,10 @@ function getRoleConfig(pathname: string | null) {
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebarCollapsed } = useUIStore();
-  const { navItems, userName, roleLabel } = getRoleConfig(pathname);
+  const { navItems } = getRoleConfig(pathname);
+  const { data: me } = useCurrentUser();
+  const userName = me?.name ?? '';
+  const roleLabel = me?.tenantName ? `${me.roleLabel} · ${me.tenantName}` : me?.roleLabel ?? '';
 
   // Submenu open/close state tracking
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});

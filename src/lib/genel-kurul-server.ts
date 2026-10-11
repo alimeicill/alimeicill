@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireUser, type CurrentUser } from '@/lib/auth/session';
+import { MANAGER_ROLES } from '@/lib/auth/roles';
 import {
   DECISION_TYPES,
   getVotingUnits,
@@ -9,9 +11,6 @@ import {
   type GeneralMeeting,
   type VoteChoice,
 } from '@/lib/genel-kurul';
-
-// Demo kiracı (mock-data ile aynı). Kimlik doğrulama eklendiğinde oturumdan alınmalı.
-export const TENANT_ID = 'tenant-001';
 
 export const ATTENDANCE_MODES: AttendanceMode[] = ['fiziksel', 'online', 'vekalet'];
 export const VOTE_CHOICES: VoteChoice[] = ['kabul', 'ret', 'cekimser'];
@@ -25,8 +24,8 @@ export const meetingInclude = {
 
 type MeetingWithRelations = NonNullable<Awaited<ReturnType<typeof findMeeting>>>;
 
-export function findMeeting(id: string) {
-  return prisma.generalMeeting.findFirst({ where: { id, tenantId: TENANT_ID }, include: meetingInclude });
+export function findMeeting(id: string, tenantId: string) {
+  return prisma.generalMeeting.findFirst({ where: { id, tenantId }, include: meetingInclude });
 }
 
 export function toDto(m: MeetingWithRelations): GeneralMeeting {
@@ -59,14 +58,29 @@ export function toDto(m: MeetingWithRelations): GeneralMeeting {
   };
 }
 
-export async function meetingResponse(id: string) {
-  const m = await findMeeting(id);
+export async function meetingResponse(id: string, tenantId: string) {
+  const m = await findMeeting(id, tenantId);
   if (!m) return fail('Genel kurul bulunamadı.', 404);
   return NextResponse.json(toDto(m));
 }
 
 export function isVotingUnit(unitId: unknown): unitId is string {
   return typeof unitId === 'string' && getVotingUnits().some((u) => u.id === unitId);
+}
+
+export type MeetingUser = CurrentUser & { tenantId: string; isManager: boolean };
+
+/** Siteye bağlı herhangi bir kullanıcı; yönetici olup olmadığı işaretlenir. */
+export async function requireMeetingUser(): Promise<MeetingUser | NextResponse> {
+  const auth = await requireUser();
+  if (auth instanceof NextResponse) return auth;
+  if (!auth.tenantId) return fail('Hesabınız bir siteye bağlı değil.', 403);
+  return { ...auth, tenantId: auth.tenantId, isManager: MANAGER_ROLES.includes(auth.role) };
+}
+
+/** Yönetici her daire için, sakin yalnızca kat maliki olduğu daire için işlem yapabilir. */
+export function canActForUnit(user: MeetingUser, unitId: string) {
+  return user.isManager || getVotingUnits().some((u) => u.id === unitId && u.ownerId === user.id);
 }
 
 export function fail(message: string, status = 400) {

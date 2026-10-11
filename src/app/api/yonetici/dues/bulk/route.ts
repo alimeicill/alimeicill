@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server';
+import { requireManager } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { BorclandirmaEngine, DistributionType, Daire } from '@/lib/services/finance-engine';
 import { DueType, DueStatus } from '@prisma/client';
 
 export async function POST(req: Request) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const body = await req.json();
     const {
-      tenantId,
       toplamButce,
       dagitimTipi,
       period,
@@ -17,9 +20,6 @@ export async function POST(req: Request) {
     } = body;
 
     // Validation
-    if (!tenantId) {
-      return NextResponse.json({ error: 'tenantId gereklidir.' }, { status: 400 });
-    }
     if (!toplamButce || isNaN(Number(toplamButce)) || Number(toplamButce) <= 0) {
       return NextResponse.json({ error: 'Geçersiz toplam bütçe tutarı.' }, { status: 400 });
     }

@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
+import { requireManager } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { BankMovementClassification, BankMovementStatus } from '@prisma/client';
 
 export async function POST(req: Request) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const body = await req.json();
-    const { tenantId, csvContent, columnMapping } = body;
+    const { csvContent, columnMapping } = body;
 
-    if (!tenantId) {
-      return NextResponse.json({ error: 'tenantId gereklidir.' }, { status: 400 });
-    }
     if (!csvContent) {
       return NextResponse.json({ error: 'Dosya içeriği boş veya geçersiz.' }, { status: 400 });
     }

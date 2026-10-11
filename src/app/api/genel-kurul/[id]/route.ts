@@ -1,15 +1,18 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { calculateQuorum, getVotingUnits } from '@/lib/genel-kurul';
-import { fail, findMeeting, meetingResponse, serverError, toDto } from '@/lib/genel-kurul-server';
+import { fail, findMeeting, meetingResponse, requireMeetingUser, serverError, toDto } from '@/lib/genel-kurul-server';
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PATCH(request: Request, { params }: Ctx) {
+  const user = await requireMeetingUser();
+  if (user instanceof NextResponse) return user;
+  if (!user.isManager) return fail('Bu işlem için yetkiniz yok.', 403);
   try {
     const { id } = await params;
     const { action } = (await request.json().catch(() => ({}))) as { action?: string };
-    const m = await findMeeting(id);
+    const m = await findMeeting(id, user.tenantId);
     if (!m) return fail('Genel kurul bulunamadı.', 404);
     const dto = toDto(m);
 
@@ -36,16 +39,19 @@ export async function PATCH(request: Request, { params }: Ctx) {
       default:
         return fail('Geçersiz işlem.');
     }
-    return meetingResponse(id);
+    return meetingResponse(id, user.tenantId);
   } catch (error) {
     return serverError(error);
   }
 }
 
 export async function DELETE(_request: Request, { params }: Ctx) {
+  const user = await requireMeetingUser();
+  if (user instanceof NextResponse) return user;
+  if (!user.isManager) return fail('Bu işlem için yetkiniz yok.', 403);
   try {
     const { id } = await params;
-    const m = await findMeeting(id);
+    const m = await findMeeting(id, user.tenantId);
     if (!m) return fail('Genel kurul bulunamadı.', 404);
     await prisma.generalMeeting.delete({ where: { id } });
     return NextResponse.json({ ok: true });

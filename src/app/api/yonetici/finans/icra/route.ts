@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
+import { requireManager } from '@/lib/auth/session';
 import { AdvancedFinanceService } from '@/lib/services/advanced-finance-service';
 import { calculateLegalInterest } from '@/lib/services/financeMath';
 
 export async function GET() {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const legalProcesses = AdvancedFinanceService.getLegalProcesses();
     return NextResponse.json(legalProcesses);
@@ -12,6 +16,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const body = await req.json();
     const { principal, overdueDays, annualInterestRate = 24, lawyerFeeRate = 10 } = body;

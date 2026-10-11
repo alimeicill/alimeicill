@@ -26,36 +26,7 @@ import {
 import { cn, getInitials } from '@/lib/utils';
 import { useUIStore } from '@/stores/ui';
 import { mockUnits, mockUsers, mockTasks } from '@/lib/mock-data';
-
-// Helper function to resolve dynamic user details based on active dashboard path
-function getHeaderUser(pathname: string) {
-  if (pathname.startsWith('/super-admin')) {
-    return {
-      name: 'Hakan Demir',
-      email: 'super@apartmanyonet.com',
-      role: 'SaaS Platform Sahibi',
-    };
-  }
-  if (pathname.startsWith('/sakin')) {
-    return {
-      name: 'Mehmet Kaya',
-      email: 'mehmet@yildiz.com',
-      role: 'Daire Sakini',
-    };
-  }
-  if (pathname.startsWith('/personel')) {
-    return {
-      name: 'Murat Usta',
-      email: 'murat.usta@yildiz.com',
-      role: 'Teknik Personel',
-    };
-  }
-  return {
-    name: 'Hasan Korkmaz',
-    email: 'hasan.korkmaz@yildiz.com',
-    role: 'Site Yöneticisi',
-  };
-}
+import { useCurrentUser, useLogout } from '@/lib/auth/use-current-user';
 
 export function Header() {
   const { theme, setTheme } = useTheme();
@@ -69,7 +40,9 @@ export function Header() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  const mockUser = getHeaderUser(pathname);
+  const { data: me } = useCurrentUser();
+  const logout = useLogout();
+  const currentUser = { name: me?.name ?? '', email: me?.email ?? '', role: me?.roleLabel ?? '' };
 
   const toggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -77,7 +50,7 @@ export function Header() {
 
   const handleLogout = () => {
     setUserMenuOpen(false);
-    router.push('/giris');
+    logout();
   };
 
   // Keyboard shortcut listener for Command Palette (Ctrl+K or Cmd+K)
@@ -256,13 +229,13 @@ export function Header() {
               className="flex items-center gap-2 rounded-xl p-1.5 transition-all duration-200 hover:bg-[var(--bg-tertiary)]"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-xs font-bold text-white shadow-md">
-                {getInitials(mockUser.name)}
+                {getInitials(currentUser.name)}
               </div>
               <div className="hidden text-left lg:block">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">
-                  {mockUser.name}
+                  {currentUser.name}
                 </p>
-                <p className="text-xs text-[var(--text-tertiary)]">{mockUser.role}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{currentUser.role}</p>
               </div>
               <ChevronDown className="hidden h-4 w-4 text-[var(--text-tertiary)] lg:block" />
             </button>
@@ -277,10 +250,10 @@ export function Header() {
                 <div className="absolute right-0 top-full z-50 mt-2 w-56 origin-top-right animate-fade-in rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-1.5 shadow-xl">
                   <div className="border-b border-[var(--border-color)] px-3 py-2.5">
                     <p className="text-sm font-semibold text-[var(--text-primary)]">
-                      {mockUser.name}
+                      {currentUser.name}
                     </p>
                     <p className="text-xs text-[var(--text-tertiary)]">
-                      {mockUser.email}
+                      {currentUser.email}
                     </p>
                   </div>
 

@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
+import { requireManager } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 
-const DEFAULT_TENANT_ID = 'tenant-001'; // Matches mock tenant ID
-
 export async function GET(request: Request) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get('tenantId') || DEFAULT_TENANT_ID;
 
     // Fetch accounts and compute balance for each account
     const accounts = await prisma.cariHesap.findMany({
@@ -71,9 +72,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const body = await request.json();
-    const { code, name, type, taxOffice, taxNumber, phone, email, address, tenantId = DEFAULT_TENANT_ID } = body;
+    const { code, name, type, taxOffice, taxNumber, phone, email, address } = body;
 
     if (!code || !name || !type) {
       return NextResponse.json({ error: 'Cari kod, unvan/ad ve tür alanları zorunludur.' }, { status: 400 });

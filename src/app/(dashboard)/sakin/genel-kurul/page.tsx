@@ -16,9 +16,8 @@ import {
   type GeneralMeeting,
   type VoteChoice,
 } from '@/lib/genel-kurul';
+import { useCurrentUser } from '@/lib/auth/use-current-user';
 
-// Demo sakinin kat maliki olduğu bağımsız bölüm.
-const MY_UNIT_ID = 'unit-A201';
 
 const VOTE_BTN: Record<VoteChoice, { active: string; idle: string }> = {
   kabul: { active: 'bg-emerald-500 text-white border-emerald-500', idle: 'hover:border-emerald-400 hover:text-emerald-600' },
@@ -28,7 +27,10 @@ const VOTE_BTN: Record<VoteChoice, { active: string; idle: string }> = {
 
 export default function ResidentGeneralMeetingPage() {
   const units = useMemo(() => getVotingUnits(), []);
-  const myUnit = units.find((u) => u.id === MY_UNIT_ID);
+  const { data: me } = useCurrentUser();
+  // Kullanıcının kat maliki olduğu ilk daire adına işlem yapılır.
+  const myUnitId = me?.ownedUnitIds[0] ?? '';
+  const myUnit = units.find((u) => u.id === myUnitId);
   const [meetings, setMeetings] = useState<GeneralMeeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -69,14 +71,14 @@ export default function ResidentGeneralMeetingPage() {
 
   const setAttendance = (m: GeneralMeeting, mode: AttendanceMode, proxyName?: string) =>
     run(
-      () => genelKurulApi.setAttendance(m.id, MY_UNIT_ID, mode, proxyName),
+      () => genelKurulApi.setAttendance(m.id, myUnitId, mode, proxyName),
       mode === 'vekalet'
         ? `Vekâletiniz ${proxyName} adına kaydedildi.`
         : `Katılımınız (${ATTENDANCE_LABELS[mode]}) kaydedildi.`
     );
 
   const vote = (m: GeneralMeeting, itemId: string, choice: VoteChoice) =>
-    run(() => genelKurulApi.setVote(m.id, itemId, MY_UNIT_ID, choice), `Oyunuz kaydedildi: ${VOTE_LABELS[choice]}`);
+    run(() => genelKurulApi.setVote(m.id, itemId, myUnitId, choice), `Oyunuz kaydedildi: ${VOTE_LABELS[choice]}`);
 
   const sorted = [...meetings].sort((a, b) => {
     const order = { devam: 0, planlandi: 1, tamamlandi: 2 } as const;
@@ -106,6 +108,13 @@ export default function ResidentGeneralMeetingPage() {
         </div>
       )}
 
+      {me && !myUnitId && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-700 dark:text-amber-400">
+          Genel kurulda oy hakkı kat maliklerine aittir. Hesabınıza bağlı, maliki olduğunuz bir daire bulunmadığı için toplantıları yalnızca
+          görüntüleyebilirsiniz.
+        </div>
+      )}
+
       {!loading && !loadError && sorted.length === 0 && (
         <div className="glass rounded-2xl border border-[var(--border-color)] p-12 text-center text-[var(--text-tertiary)]">
           Planlanmış bir genel kurul bulunmuyor.
@@ -116,6 +125,7 @@ export default function ResidentGeneralMeetingPage() {
         <MeetingCard
           key={m.id}
           meeting={m}
+          unitId={myUnitId}
           units={units}
           onAttend={(mode, proxy) => setAttendance(m, mode, proxy)}
           onVote={(itemId, c) => vote(m, itemId, c)}
@@ -127,23 +137,25 @@ export default function ResidentGeneralMeetingPage() {
 
 function MeetingCard({
   meeting,
+  unitId,
   units,
   onAttend,
   onVote,
 }: {
   meeting: GeneralMeeting;
+  unitId: string;
   units: ReturnType<typeof getVotingUnits>;
   onAttend: (mode: AttendanceMode, proxyName?: string) => void;
   onVote: (itemId: string, choice: VoteChoice) => void;
 }) {
   const [proxyName, setProxyName] = useState('');
   const [showProxy, setShowProxy] = useState(false);
-  const myAttendance = meeting.attendance[MY_UNIT_ID];
+  const myAttendance = meeting.attendance[unitId];
   const quorum = calculateQuorum(meeting, units);
   const isLive = meeting.status === 'devam';
   const isDone = meeting.status === 'tamamlandi';
   // Vekâlet verilen malik oyunu vekili aracılığıyla toplantıda kullanır.
-  const canVote = isLive && !!myAttendance && myAttendance.mode !== 'vekalet';
+  const canVote = isLive && !!unitId && !!myAttendance && myAttendance.mode !== 'vekalet';
 
   return (
     <div className="glass rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6 space-y-5">
@@ -171,7 +183,7 @@ function MeetingCard({
       </div>
 
       {/* Attendance */}
-      {!isDone && (
+      {!isDone && unitId && (
         <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 space-y-3">
           {myAttendance ? (
             <p className="text-xs text-[var(--text-primary)] flex items-center gap-2">
@@ -247,7 +259,7 @@ function MeetingCard({
           <p className="text-xs text-amber-600">Oy kullanabilmek için önce katılımınızı bildirin.</p>
         )}
         {meeting.agenda.map((item, i) => {
-          const myVote = meeting.votes[item.id]?.[MY_UNIT_ID];
+          const myVote = meeting.votes[item.id]?.[unitId];
           const r = calculateItemResult(meeting, item, units);
           const dt = DECISION_TYPES[item.decisionType];
           return (

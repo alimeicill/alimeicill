@@ -3,17 +3,19 @@ import { prisma } from '@/lib/prisma';
 import { buildSeedMeetings, type GeneralMeeting } from '@/lib/genel-kurul';
 import {
   DECISION_TYPE_KEYS,
-  TENANT_ID,
   fail,
   meetingInclude,
+  requireMeetingUser,
   serverError,
   toDto,
 } from '@/lib/genel-kurul-server';
 
 export async function GET() {
+  const user = await requireMeetingUser();
+  if (user instanceof NextResponse) return user;
   try {
     const meetings = await prisma.generalMeeting.findMany({
-      where: { tenantId: TENANT_ID },
+      where: { tenantId: user.tenantId },
       include: meetingInclude,
       orderBy: { scheduledAt: 'desc' },
     });
@@ -24,12 +26,15 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const user = await requireMeetingUser();
+  if (user instanceof NextResponse) return user;
+  if (!user.isManager) return fail('Genel kurulu yalnızca yönetim oluşturabilir.', 403);
   try {
     const body = await request.json().catch(() => null);
     if (!body) return fail('Geçersiz istek gövdesi.');
 
     if (body.demo === true) {
-      for (const m of buildSeedMeetings()) await createMeeting(m);
+      for (const m of buildSeedMeetings()) await createMeeting(m, user.tenantId);
       return GET();
     }
 
@@ -46,7 +51,7 @@ export async function POST(request: Request) {
 
     const created = await prisma.generalMeeting.create({
       data: {
-        tenantId: TENANT_ID,
+        tenantId: user.tenantId,
         title: title.trim(),
         kind,
         scheduledAt: new Date(scheduledAt),
@@ -70,10 +75,10 @@ export async function POST(request: Request) {
 }
 
 /** Örnek veriyi (istemci tarafı kimlikleriyle) veritabanına yazar. */
-async function createMeeting(m: GeneralMeeting) {
+async function createMeeting(m: GeneralMeeting, tenantId: string) {
   const meeting = await prisma.generalMeeting.create({
     data: {
-      tenantId: TENANT_ID,
+      tenantId,
       title: m.title,
       kind: m.kind,
       round: m.round,

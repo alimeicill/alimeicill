@@ -270,6 +270,8 @@ model User {
   id          String    @id @default(cuid())
   tenantId    String?
   email       String    @unique
+  // bcrypt özeti; null ise kullanıcı henüz şifre belirlememiştir ve giriş yapamaz.
+  passwordHash String?
   name        String
   phone       String?
   avatar      String?

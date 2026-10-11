@@ -7,6 +7,7 @@ import Link from 'next/link';
 
 export default function KayitPage() {
   const router = useRouter();
+  const [siteName, setSiteName] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -16,7 +17,7 @@ export default function KayitPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
       setError('Şifreler eşleşmiyor!');
@@ -25,12 +26,25 @@ export default function KayitPage() {
 
     setIsLoading(true);
     setError('');
-
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteName, name, email, phone, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'Kayıt tamamlanamadı. Lütfen tekrar deneyin.');
+        return;
+      }
+      // Hesap ve oturum oluştu -> kurulum sihirbazı
+      router.replace(data.home);
+      router.refresh();
+    } catch {
+      setError('Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.');
+    } finally {
       setIsLoading(false);
-      // Registration successful -> redirect to onboarding wizard
-      router.push('/kurulum');
-    }, 1000);
+    }
   };
 
   return (
@@ -89,6 +103,23 @@ export default function KayitPage() {
           )}
 
           <form className="space-y-4" onSubmit={handleSubmit}>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--text-secondary)]">Site / Apartman Adı</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-[var(--text-tertiary)]">
+                  <Building className="h-4.5 w-4.5" />
+                </span>
+                <input
+                  type="text"
+                  required
+                  value={siteName}
+                  onChange={(e) => setSiteName(e.target.value)}
+                  className="block w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] py-2.5 pl-9 pr-4 text-sm text-[var(--text-primary)] shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  placeholder="örn: Yıldız Konakları Sitesi"
+                />
+              </div>
+            </div>
+
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-[var(--text-secondary)]">Ad Soyad</label>
               <div className="relative">
@@ -150,10 +181,12 @@ export default function KayitPage() {
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
+                    minLength={8}
+                    autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="block w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] py-2.5 pl-9 pr-4 text-xs text-[var(--text-primary)] focus:outline-none"
-                    placeholder="••••••••"
+                    placeholder="En az 8 karakter"
                   />
                 </div>
               </div>
@@ -170,6 +203,8 @@ export default function KayitPage() {
                 />
               </div>
             </div>
+
+            <p className="text-[11px] text-[var(--text-tertiary)]">Şifre en az 8 karakter olmalı; harf ve rakam içermelidir.</p>
 
             <div className="flex items-center justify-between pt-2">
               <label className="flex items-center text-xs text-[var(--text-secondary)] cursor-pointer">

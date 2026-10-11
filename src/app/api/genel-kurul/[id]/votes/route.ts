@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import {
   VOTE_CHOICES,
@@ -5,12 +6,16 @@ import {
   findMeeting,
   isVotingUnit,
   meetingResponse,
+  requireMeetingUser,
+  canActForUnit,
   serverError,
 } from '@/lib/genel-kurul-server';
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PUT(request: Request, { params }: Ctx) {
+  const user = await requireMeetingUser();
+  if (user instanceof NextResponse) return user;
   try {
     const { id } = await params;
     const { agendaItemId, unitId, choice } = (await request.json().catch(() => ({}))) as {
@@ -19,13 +24,16 @@ export async function PUT(request: Request, { params }: Ctx) {
       choice?: unknown;
     };
     if (!isVotingUnit(unitId)) return fail('Geçersiz bağımsız bölüm.');
+    if (!canActForUnit(user, unitId)) return fail('Bu daire adına işlem yapamazsınız.', 403);
     if (choice !== null && !VOTE_CHOICES.includes(choice as never)) return fail('Geçersiz oy.');
 
-    const m = await findMeeting(id);
+    const m = await findMeeting(id, user.tenantId);
     if (!m) return fail('Genel kurul bulunamadı.', 404);
     if (m.status !== 'devam') return fail('Oy yalnızca toplantı sürerken kullanılabilir.');
     if (!m.agenda.some((a) => a.id === agendaItemId)) return fail('Gündem maddesi bulunamadı.');
-    if (!m.attendances.some((a) => a.unitId === unitId)) return fail('Oy kullanmak için önce katılım bildirilmelidir.');
+    const attendance = m.attendances.find((a) => a.unitId === unitId);
+    if (!attendance) return fail('Oy kullanmak için önce katılım bildirilmelidir.');
+    if (!user.isManager && attendance.mode === 'vekalet') return fail('Vekâlet verdiğiniz için oyunuzu vekiliniz kullanır.', 403);
 
     const key = { agendaItemId: agendaItemId as string, unitId };
     if (choice === null) {
@@ -37,7 +45,7 @@ export async function PUT(request: Request, { params }: Ctx) {
         update: { choice: choice as string },
       });
     }
-    return meetingResponse(id);
+    return meetingResponse(id, user.tenantId);
   } catch (error) {
     return serverError(error);
   }

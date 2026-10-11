@@ -1,28 +1,37 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
+// Kullanıcı metni HTML e-postaya kaçışlanarak eklenir.
+const esc = (v: unknown) =>
+  String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    
-    // Configure nodemailer transporter with Gmail SMTP and explicit port/timeout
+    const raw = await request.json();
+    const body = Object.fromEntries(['AdSoyad', 'Rol', 'Url', 'Konu', 'Mesaj'].map((k) => [k, esc(raw?.[k])]));
+
+    // SMTP bilgileri ortam değişkenlerinden okunur (ör. Gmail uygulama şifresi).
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+    const to = process.env.FEEDBACK_TO || smtpUser;
+    if (!smtpUser || !smtpPass || !to) {
+      return NextResponse.json({ success: false, error: 'E-posta gönderimi yapılandırılmamış (SMTP_USER / SMTP_PASS).' }, { status: 503 });
+    }
+
     const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: Number(process.env.SMTP_PORT) || 587,
       secure: false, // false for TLS (port 587), true for SSL (port 465)
-      auth: {
-        user: 'alimeicil@gmail.com',
-        pass: 'kvjyupqexigedeqg', // Gmail App Password
-      },
+      auth: { user: smtpUser, pass: smtpPass },
       connectionTimeout: 5000, // 5 seconds connection timeout
       greetingTimeout: 5000,
       socketTimeout: 8000,
     });
 
     const mailOptions = {
-      from: '"ApartmanYönet Sistem Geribildirim" <alimeicil@gmail.com>',
-      to: 'alimeicil@gmail.com',
-      subject: `[${body.Konu}] ${body.AdSoyad}`,
+      from: `"ApartmanYönet Sistem Geribildirim" <${smtpUser}>`,
+      to,
+      subject: `[${raw?.Konu ?? ''}] ${raw?.AdSoyad ?? ''}`.slice(0, 200),
       text: `
 ApartmanYönet Sistem Geri Bildirimi
 
@@ -82,14 +91,14 @@ ${body.Mesaj}
     await transporter.sendMail(mailOptions);
     
     console.log('====== GERİ BİLDİRİM E-POSTASI GÖNDERİLDİ ======');
-    console.log('Alıcı: alimeicil@gmail.com');
+    console.log('Alıcı:', to);
     console.log('Gönderen:', body.AdSoyad);
     console.log('Konu:', body.Konu);
     console.log('================================================');
 
     return NextResponse.json({
       success: true,
-      message: 'Geri bildiriminiz başarıyla alimeicil@gmail.com adresine iletildi.',
+      message: 'Geri bildiriminiz başarıyla iletildi.',
     });
   } catch (error: any) {
     console.error('Feedback API Hatası:', error);

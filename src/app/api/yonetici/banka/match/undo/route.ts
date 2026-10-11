@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
+import { requireManager } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { BankMovementStatus, DueStatus } from '@prisma/client';
 
 export async function POST(req: Request) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const body = await req.json();
     const { movementId } = body;
@@ -12,8 +16,8 @@ export async function POST(req: Request) {
     }
 
     // 1. Fetch bank movement
-    const movement = await prisma.bankMovement.findUnique({
-      where: { id: movementId }
+    const movement = await prisma.bankMovement.findFirst({
+      where: { id: movementId, tenantId }
     });
 
     if (!movement) {
@@ -27,6 +31,7 @@ export async function POST(req: Request) {
     // 2. Find payment linked to this transaction Ref
     const linkedPayment = await prisma.payment.findFirst({
       where: {
+        tenantId,
         receiptNo: movement.transactionRef
       }
     });

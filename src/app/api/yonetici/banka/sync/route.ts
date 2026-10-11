@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server';
+import { requireManager } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { BankAdapterFactory } from '@/lib/services/bank-adapters';
 import { BankMovementStatus } from '@prisma/client';
 
 export async function POST(req: Request) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const body = await req.json();
-    const { tenantId, provider = 'Garanti', bankAccountId } = body;
+    const { provider = 'Garanti', bankAccountId } = body;
 
-    if (!tenantId) {
-      return NextResponse.json({ error: 'tenantId gereklidir.' }, { status: 400 });
-    }
 
     // 1. Get bank adapter
     const adapter = BankAdapterFactory.getAdapter(provider);

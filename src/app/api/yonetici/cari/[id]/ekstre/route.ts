@@ -1,17 +1,18 @@
 import { NextResponse } from 'next/server';
+import { requireManager } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
-
-const DEFAULT_TENANT_ID = 'tenant-001';
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const { id } = await params;
     const cariHesapId = id;
     const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get('tenantId') || DEFAULT_TENANT_ID;
 
     // Fetch the account to ensure it exists
     const account = await prisma.cariHesap.findFirst({
@@ -85,11 +86,14 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const { id } = await params;
     const cariHesapId = id;
     const body = await request.json();
-    const { date, description, direction, amount, documentNo, tenantId = DEFAULT_TENANT_ID } = body;
+    const { date, description, direction, amount, documentNo } = body;
 
     if (!description || !direction || amount === undefined || amount === null) {
       return NextResponse.json({ error: 'Açıklama, yön (BORÇ/ALACAK) ve tutar alanları zorunludur.' }, { status: 400 });

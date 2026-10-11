@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
+import { requireManager } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { BankMovementClassification } from '@prisma/client';
 
 export async function GET(req: Request) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const { searchParams } = new URL(req.url);
-    const tenantId = searchParams.get('tenantId');
     const status = searchParams.get('status');
 
-    if (!tenantId) {
-      return NextResponse.json({ error: 'tenantId gereklidir.' }, { status: 400 });
-    }
 
     const whereClause: any = { tenantId };
     if (status) {
@@ -31,6 +31,9 @@ export async function GET(req: Request) {
 }
 
 export async function PUT(req: Request) {
+  const auth = await requireManager();
+  if (auth instanceof NextResponse) return auth;
+  const tenantId = auth.tenantId;
   try {
     const body = await req.json();
     const { movementId, classification } = body;
@@ -42,12 +45,17 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Geçersiz sınıflandırma değeri.' }, { status: 400 });
     }
 
-    const updated = await prisma.bankMovement.update({
-      where: { id: movementId },
+    // Yalnızca bu siteye ait hareket güncellenebilir.
+    const { count } = await prisma.bankMovement.updateMany({
+      where: { id: movementId, tenantId },
       data: {
         classification: classification as BankMovementClassification
       }
     });
+    if (count === 0) {
+      return NextResponse.json({ error: 'Banka hareketi bulunamadı.' }, { status: 404 });
+    }
+    const updated = await prisma.bankMovement.findUnique({ where: { id: movementId } });
 
     return NextResponse.json({
       success: true,
