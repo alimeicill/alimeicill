@@ -11,6 +11,8 @@ const PaymentSchema = z.object({
   method: z.enum(['CASH', 'BANK_TRANSFER', 'CREDIT_CARD'], { errorMap: () => ({ message: 'Ödeme yöntemi seçin.' }) }),
   paidAt: z.coerce.date({ errorMap: () => ({ message: 'Ödeme tarihini girin.' }) }),
   notes: z.string().trim().max(200).optional(),
+  // Boşsa yönteme göre varsayılan kasa / banka hesabı kullanılır.
+  accountId: z.string().trim().min(1).optional().nullable(),
 });
 
 /** Elle tahsilat kaydı (nakit, havale, POS). */
@@ -23,7 +25,7 @@ export async function POST(request: Request, { params }: Ctx) {
   if (parsed.data.paidAt > new Date(Date.now() + 86_400_000)) {
     return NextResponse.json({ error: 'Ödeme tarihi ileri bir tarih olamaz.' }, { status: 400 });
   }
-  const result = await recordPayment(auth.tenantId, id, { ...parsed.data, amount: D(parsed.data.amount) });
+  const result = await recordPayment(auth.tenantId, id, { ...parsed.data, amount: D(parsed.data.amount), userId: auth.id });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json({ applied: result.applied, invoice: await getInvoice(auth.tenantId, id) }, { status: 201 });
 }

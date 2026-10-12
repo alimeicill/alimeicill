@@ -10,7 +10,8 @@ import { TaskListWidget } from '@/components/dashboard/TaskListWidget';
 import { AnnouncementsWidget } from '@/components/dashboard/AnnouncementsWidget';
 import { OccupancyWidget } from '@/components/dashboard/OccupancyWidget';
 import { MeterChartWidget } from '@/components/dashboard/MeterChartWidget';
-import { mockDashboardStats } from '@/lib/mock-data';
+import { useQuery } from '@tanstack/react-query';
+import type { ManagerDashboard } from '@/lib/server/dashboard';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
 import { 
@@ -26,13 +27,21 @@ import { HeroCarouselBanner } from '@/components/dashboard/HeroCarouselBanner';
 import Link from 'next/link';
 
 export default function YoneticiDashboardPage() {
-  const stats = mockDashboardStats;
+  // Rakamlar veritabanından (doluluk, tahsilat, borç, kasa, gelir-gider).
+  const { data: pano, error: panoError } = useQuery<ManagerDashboard>({
+    queryKey: ['manager-dashboard'],
+    queryFn: async () => {
+      const res = await fetch('/api/yonetici/pano');
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Pano verileri yüklenemedi.');
+      return body;
+    },
+  });
 
   // Notes, messages, and summary stats loaded from local storage / service
   const [notes, setNotes] = useState<SiteNote[]>([]);
   const [messages, setMessages] = useState<SiteMessage[]>([]);
   const [announcements, setAnnouncements] = useState<SoftwareAnnouncement[]>([]);
-  const [shStats, setShStats] = useState<any>(null);
 
   // Active slide banner index
   const [activeSlide, setActiveSlide] = useState(0);
@@ -41,7 +50,6 @@ export default function YoneticiDashboardPage() {
     setNotes(SiteHesabimService.getNotes());
     setMessages(SiteHesabimService.getMessages());
     setAnnouncements(SiteHesabimService.getSoftwareAnnouncements());
-    setShStats(SiteHesabimService.getSummaryStats());
   };
 
   useEffect(() => {
@@ -68,19 +76,34 @@ export default function YoneticiDashboardPage() {
     setMessages(updated);
   };
 
-  // Modernized unified data structure for KPI stat cards
   const kpiStats = useMemo(() => {
+    if (!pano) return null;
     return {
-      totalProperties: shStats?.tasinmazDurumu?.toplamTasinmaz || 6,
-      occupancyRate: 85,
-      collectionRate: stats.collectionRate,
-      totalCollected: stats.totalRevenue,
-      totalOutstanding: stats.totalExpenses,
-      debtorCount: shStats?.tasinmazDurumu?.borcluOlan || 13,
-      overdueAmount: shStats?.uyeDurumu?.toplamBorc || stats.overdueInvoices * 1250,
-      netCash: shStats?.generalDurum?.kasaBakiye || stats.totalRevenue - stats.totalExpenses
+      totalProperties: pano.units.total,
+      occupancyRate: pano.units.occupancyRate,
+      monthCollected: pano.dues.monthCollected,
+      monthAccrued: pano.dues.monthAccrued,
+      collectionRate: pano.dues.monthCollectionRate,
+      totalOutstanding: pano.dues.outstanding,
+      debtorCount: pano.dues.debtorUnits,
+      overdueAmount: pano.dues.overdue,
+      netCash: pano.cash.total,
+      cash: pano.cash.cash,
+      bank: pano.cash.bank,
     };
-  }, [shStats, stats]);
+  }, [pano]);
+
+  // Borç / varlık dengesi: açık üye borcu ile kasa + banka toplamının oranı.
+  const balance = useMemo(() => {
+    if (!pano) return null;
+    const receivable = pano.dues.outstanding;
+    const cash = Math.max(pano.cash.total, 0);
+    const whole = receivable + cash;
+    const receivablePct = whole > 0 ? Math.round((receivable / whole) * 100) : 0;
+    return { receivable, receivablePct, cashPct: whole > 0 ? 100 - receivablePct : 0 };
+  }, [pano]);
+
+  const pending = pano && pano.dues.monthAccrued > 0 ? 100 - pano.dues.monthCollectionRate : 0;
 
   return (
     <div className="space-y-6 animate-fade-in pb-12 text-xs text-slate-800 dark:text-slate-100">
@@ -91,12 +114,15 @@ export default function YoneticiDashboardPage() {
           Kontrol Paneli
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">
-          Yıldız Konakları Sitesi — Modern Yönetici Dashboard Ekranı
+          {pano?.siteName ? `${pano.siteName} — güncel durum` : 'Güncel durum'}
         </p>
       </div>
 
       {/* A. 4'lü KPI Grid */}
-      <StatCards stats={kpiStats} />
+      {panoError && (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-600">{(panoError as Error).message}</div>
+      )}
+      {kpiStats ? <StatCards stats={kpiStats} /> : <div className="h-36 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />}
 
       {/* Main Grid: Sol Kolon (8) & Sağ Kolon (4) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -117,8 +143,8 @@ export default function YoneticiDashboardPage() {
           {/* Orijinal Finansal Grafik & Sayaç Grafiği */}
           <div className="grid gap-6 md:grid-cols-2">
             <div className="rounded-xl border border-slate-200/80 bg-white dark:bg-slate-800 p-5 shadow-sm">
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-4">Finansal Özet</h3>
-              <FinancialSummaryWidget />
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-4">Gelir / Gider (Son 6 Ay)</h3>
+              {pano && <FinancialSummaryWidget data={pano.monthly} />}
             </div>
 
             <div className="rounded-xl border border-slate-200/80 bg-white dark:bg-slate-800 p-5 shadow-sm">
@@ -130,8 +156,8 @@ export default function YoneticiDashboardPage() {
           {/* Orijinal Faturalar & Görevler Listesi */}
           <div className="grid gap-6 md:grid-cols-2">
             <div className="rounded-xl border border-slate-200/80 bg-white dark:bg-slate-800 p-5 shadow-sm">
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-4">Son Faturalar</h3>
-              <RecentInvoicesWidget />
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-4">Son Tahsilatlar</h3>
+              {pano && <RecentInvoicesWidget payments={pano.recentPayments} />}
             </div>
 
             <div className="rounded-xl border border-slate-200/80 bg-white dark:bg-slate-800 p-5 shadow-sm">
@@ -157,37 +183,11 @@ export default function YoneticiDashboardPage() {
               Taşınmaz Durumu
             </h3>
 
-            {shStats && (
+            {pano && (
               <div className="grid grid-cols-3 gap-2.5">
-                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3 border border-slate-100 dark:border-slate-800 text-center space-y-1 relative overflow-hidden">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400 mx-auto">
-                    <Home className="h-4 w-4" />
-                  </span>
-                  <span className="text-[9px] uppercase font-bold text-slate-400 block">Toplam</span>
-                  <h4 className="text-base font-extrabold text-slate-800 dark:text-slate-200 leading-none">
-                    {shStats.tasinmazDurumu.toplamTasinmaz}
-                  </h4>
-                </div>
-
-                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3 border border-slate-100 dark:border-slate-800 text-center space-y-1 relative overflow-hidden">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 mx-auto">
-                    <Key className="h-4 w-4" />
-                  </span>
-                  <span className="text-[9px] uppercase font-bold text-slate-400 block">Borçlu</span>
-                  <h4 className="text-base font-extrabold text-slate-800 dark:text-slate-200 leading-none">
-                    {shStats.tasinmazDurumu.borcluOlan}
-                  </h4>
-                </div>
-
-                <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3 border border-slate-100 dark:border-slate-800 text-center space-y-1 relative overflow-hidden">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 mx-auto">
-                    <FileText className="h-4 w-4" />
-                  </span>
-                  <span className="text-[9px] uppercase font-bold text-slate-400 block">Alacaklı</span>
-                  <h4 className="text-base font-extrabold text-slate-800 dark:text-slate-200 leading-none">
-                    {shStats.tasinmazDurumu.alacakliOlan}
-                  </h4>
-                </div>
+                <PropertyTile icon={<Home className="h-4 w-4" />} tone="indigo" label="Toplam" value={pano.units.total} />
+                <PropertyTile icon={<Key className="h-4 w-4" />} tone="rose" label="Borçlu" value={pano.dues.debtorUnits} />
+                <PropertyTile icon={<FileText className="h-4 w-4" />} tone="emerald" label="Boş" value={pano.units.empty} />
               </div>
             )}
           </div>
@@ -198,39 +198,41 @@ export default function YoneticiDashboardPage() {
               Borç / Alacak Dengesi
             </h3>
 
-            {shStats && (
+            {pano && balance && (
               <div className="space-y-4">
-                {/* 1. Alacaklar vs Kasa */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-[10px] font-bold text-slate-500">
-                    <span>Finansal Dağılım</span>
-                    <span>%{shStats.generalDurum.alacaklarPct} Alacak / %{shStats.generalDurum.kasaPct} Nakit</span>
+                    <span>Alacak / Nakit</span>
+                    <span>%{balance.receivablePct} Alacak / %{balance.cashPct} Nakit</span>
                   </div>
                   <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden flex">
-                    <div className="h-full bg-indigo-500" style={{ width: `${shStats.generalDurum.alacaklarPct}%` }} />
-                    <div className="h-full bg-emerald-500" style={{ width: `${shStats.generalDurum.kasaPct}%` }} />
+                    <div className="h-full bg-indigo-500" style={{ width: `${balance.receivablePct}%` }} />
+                    <div className="h-full bg-emerald-500" style={{ width: `${balance.cashPct}%` }} />
                   </div>
                   <div className="flex justify-between text-[10px] text-slate-400">
-                    <span>Toplam Alacak: ₺{shStats.generalDurum.toplamAlacak.toLocaleString()}</span>
-                    <span>Kasa: ₺{shStats.generalDurum.kasaBakiye.toLocaleString()}</span>
+                    <span>Üye alacağı: {formatCurrency(balance.receivable)}</span>
+                    <span>Kasa + banka: {formatCurrency(pano.cash.total)}</span>
                   </div>
                 </div>
 
-                {/* 2. Kalan Borç vs Tahsil Edilen */}
                 <div className="space-y-2 border-t border-slate-100 dark:border-slate-700 pt-3">
                   <div className="flex justify-between text-[10px] font-bold text-slate-500">
-                    <span>Tahsilat Oranı</span>
-                    <span>%{shStats.uyeDurumu.tahsilEdilenPct} Tahsil / %{shStats.uyeDurumu.kalanBorcPct} Bekleyen</span>
+                    <span>Bu ayın tahsilatı</span>
+                    <span>%{pano.dues.monthCollectionRate} tahsil / %{pending} bekleyen</span>
                   </div>
                   <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden flex">
-                    <div className="h-full bg-emerald-500" style={{ width: `${shStats.uyeDurumu.tahsilEdilenPct}%` }} />
-                    <div className="h-full bg-rose-500" style={{ width: `${shStats.uyeDurumu.kalanBorcPct}%` }} />
+                    <div className="h-full bg-emerald-500" style={{ width: `${pano.dues.monthCollectionRate}%` }} />
+                    <div className="h-full bg-rose-500" style={{ width: `${pending}%` }} />
                   </div>
                   <div className="flex justify-between text-[10px] text-slate-400">
-                    <span>Tahsilat: ₺{shStats.uyeDurumu.tahsilEdilen.toLocaleString()}</span>
-                    <span>Geciken Borç: ₺{shStats.uyeDurumu.toplamBorc.toLocaleString()}</span>
+                    <span>Tahsil: {formatCurrency(pano.dues.monthCollected)}</span>
+                    <span>Gecikmiş borç: {formatCurrency(pano.dues.overdue)}</span>
                   </div>
                 </div>
+
+                <Link href="/yonetici/kasa-banka" className="flex items-center justify-end gap-1 text-[10px] font-bold text-slate-400 hover:text-indigo-600">
+                  Kasa & Banka <ArrowRight className="h-3 w-3" />
+                </Link>
               </div>
             )}
           </div>
@@ -238,7 +240,7 @@ export default function YoneticiDashboardPage() {
           {/* Doluluk Oranı Chart */}
           <div className="rounded-xl border border-slate-200/80 bg-white dark:bg-slate-800 p-5 shadow-sm">
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-4">Doluluk Analizi</h3>
-            <OccupancyWidget />
+            {pano && <OccupancyWidget units={pano.units} />}
           </div>
 
           {/* Sistem Duyuruları */}
@@ -276,6 +278,21 @@ export default function YoneticiDashboardPage() {
         </div>
       </div>
 
+    </div>
+  );
+}
+
+function PropertyTile({ icon, tone, label, value }: { icon: React.ReactNode; tone: 'indigo' | 'rose' | 'emerald'; label: string; value: number }) {
+  const tones = {
+    indigo: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400',
+    rose: 'bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400',
+    emerald: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400',
+  };
+  return (
+    <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-3 border border-slate-100 dark:border-slate-800 text-center space-y-1 relative overflow-hidden">
+      <span className={`flex h-7 w-7 items-center justify-center rounded-lg mx-auto ${tones[tone]}`}>{icon}</span>
+      <span className="text-[9px] uppercase font-bold text-slate-400 block">{label}</span>
+      <h4 className="text-base font-extrabold text-slate-800 dark:text-slate-200 leading-none">{value}</h4>
     </div>
   );
 }

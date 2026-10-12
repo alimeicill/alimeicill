@@ -26,6 +26,8 @@ type InvoiceRow = {
   createdAt: string;
 };
 
+type CashAccountRow = { id: string; name: string; type: 'CASH' | 'BANK'; bankName: string | null; showToResidents: boolean; isActive: boolean };
+
 async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
   const data = await res.json().catch(() => ({}));
@@ -45,7 +47,13 @@ export default function InvoicesPage() {
     queryKey: ['units', 'manager'],
     queryFn: () => apiJson<Unit[]>('/api/yonetici/daireler'),
   });
-  const refreshInvoices = () => queryClient.invalidateQueries({ queryKey: ['invoices'] });
+  const { data: cashAccounts = [] } = useQuery<CashAccountRow[]>({
+    queryKey: ['cash-accounts'],
+    queryFn: () => apiJson<CashAccountRow[]>('/api/yonetici/kasa'),
+  });
+  const activeAccounts = cashAccounts.filter((a) => a.isActive);
+  const refreshInvoices = () =>
+    Promise.all([queryClient.invalidateQueries({ queryKey: ['invoices'] }), queryClient.invalidateQueries({ queryKey: ['cash-accounts'] })]);
   const [saving, setSaving] = useState(false);
 
   // Tahsilat penceresi
@@ -54,11 +62,22 @@ export default function InvoicesPage() {
   const [payMethod, setPayMethod] = useState<'CASH' | 'BANK_TRANSFER' | 'CREDIT_CARD'>('BANK_TRANSFER');
   const [payDate, setPayDate] = useState(today());
   const [payNotes, setPayNotes] = useState('');
+  const [payAccountId, setPayAccountId] = useState('');
+
+  // Yönteme uygun varsayılan hesap: nakit → kasa, diğerleri → banka (sakinlere gösterilen önce).
+  const defaultAccountFor = (method: typeof payMethod) => {
+    const type = method === 'CASH' ? 'CASH' : 'BANK';
+    return [...activeAccounts].filter((a) => a.type === type).sort((a, b) => Number(b.showToResidents) - Number(a.showToResidents))[0]?.id ?? '';
+  };
+  const changePayMethod = (method: typeof payMethod) => {
+    setPayMethod(method);
+    setPayAccountId(defaultAccountFor(method));
+  };
 
   const openPayment = (inv: InvoiceRow) => {
     setPayTarget(inv);
     setPayAmount(String(inv.remainingAmount));
-    setPayMethod('BANK_TRANSFER');
+    changePayMethod('BANK_TRANSFER');
     setPayDate(today());
     setPayNotes('');
   };
@@ -70,7 +89,7 @@ export default function InvoicesPage() {
     try {
       await apiJson(`/api/yonetici/aidat/${payTarget.id}/odeme`, {
         method: 'POST',
-        body: JSON.stringify({ amount: payAmount.replace(',', '.'), method: payMethod, paidAt: payDate, notes: payNotes }),
+        body: JSON.stringify({ amount: payAmount.replace(',', '.'), method: payMethod, paidAt: payDate, notes: payNotes, accountId: payAccountId || null }),
       });
       await refreshInvoices();
       toast.success(`Daire ${payTarget.unitNumber} için ${formatCurrency(Number(payAmount.replace(',', '.')))} tahsilat kaydedildi.`);
@@ -599,17 +618,29 @@ export default function InvoicesPage() {
               </div>
               <div className="space-y-1.5">
                 <label htmlFor="pay-method" className="text-xs font-semibold text-[var(--text-secondary)]">Ödeme yöntemi</label>
-                <select id="pay-method" value={payMethod} onChange={(e) => setPayMethod(e.target.value as typeof payMethod)} className="block w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none">
+                <select id="pay-method" value={payMethod} onChange={(e) => changePayMethod(e.target.value as typeof payMethod)} className="block w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none">
                   <option value="BANK_TRANSFER">Havale / EFT</option>
                   <option value="CASH">Nakit</option>
                   <option value="CREDIT_CARD">Kredi kartı (POS)</option>
                 </select>
               </div>
               <div className="space-y-1.5">
+                <label htmlFor="pay-account" className="text-xs font-semibold text-[var(--text-secondary)]">İşleneceği hesap</label>
+                <select id="pay-account" value={payAccountId} onChange={(e) => setPayAccountId(e.target.value)} className="block w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none">
+                  {activeAccounts.length === 0 && <option value="">{payMethod === 'CASH' ? 'Yönetim Kasası (otomatik açılır)' : 'Banka Hesabı (otomatik açılır)'}</option>}
+                  {activeAccounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                      {a.type === 'BANK' && a.bankName ? ` · ${a.bankName}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
                 <label htmlFor="pay-notes" className="text-xs font-semibold text-[var(--text-secondary)]">Not (isteğe bağlı)</label>
                 <input id="pay-notes" value={payNotes} onChange={(e) => setPayNotes(e.target.value)} placeholder="Örn: dekont no" className="block w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none" />
               </div>
-              <p className="text-[11px] text-[var(--text-tertiary)]">Tahsilat kalan borcu aşamaz. Gecikme tazminatı ayrıca tahakkuk ettirilmelidir.</p>
+              <p className="text-[11px] text-[var(--text-tertiary)]">Tahsilat kalan borcu aşamaz ve seçilen hesaba giriş olarak işlenir. Gecikme tazminatı ayrıca tahakkuk ettirilmelidir.</p>
               <div className="flex justify-end gap-3 border-t border-[var(--border-color)] pt-3">
                 <button type="button" onClick={() => setPayTarget(null)} className="rounded-xl px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]">Vazgeç</button>
                 <button type="submit" disabled={saving} className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow-sm disabled:opacity-60">

@@ -265,6 +265,8 @@ model Tenant {
   cariHareketler CariHareket[]
   cariFaturalar CariFatura[]
   bankMovements BankMovement[]
+  cashAccounts  CashAccount[]
+  cashTransactions CashTransaction[]
 }
 
 model User {
@@ -456,6 +458,7 @@ model Payment {
   tenant    Tenant    @relation(fields: [tenantId], references: [id])
   due       Due?      @relation(fields: [dueId], references: [id])
   apartment Apartment @relation(fields: [apartmentId], references: [id])
+  cashTransaction CashTransaction?
 }
 
 model Expense {
@@ -868,6 +871,70 @@ model BankMovement {
 
 
 
+
+// -------------------- Kasa & Banka --------------------
+
+enum CashAccountType {
+  CASH
+  BANK
+}
+
+enum CashTxType {
+  OPENING
+  DUES_COLLECTION
+  OTHER_INCOME
+  EXPENSE
+  VENDOR_PAYMENT
+  TRANSFER_IN
+  TRANSFER_OUT
+}
+
+// Sitenin para tuttuğu yerler: nakit kasa ve banka hesapları. Bakiye hareketlerden hesaplanır.
+model CashAccount {
+  id              String          @id @default(cuid())
+  tenantId        String
+  name            String
+  type            CashAccountType
+  bankName        String?
+  // Boşluksuz, büyük harf (TR + 24 hane).
+  iban            String?
+  holderName      String?
+  // Sakin aidat sayfasında ödeme hesabı olarak gösterilir.
+  showToResidents Boolean         @default(false)
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id])
+  transactions CashTransaction[]
+
+  @@index([tenantId])
+}
+
+// Kasa / banka hareketi. Tutar işaretlidir: giriş pozitif, çıkış negatif.
+model CashTransaction {
+  id          String     @id @default(cuid())
+  tenantId    String
+  accountId   String
+  type        CashTxType
+  amount      Decimal    @db.Decimal(12, 2)
+  date        DateTime
+  description String
+  // Aidat tahsilatından doğan hareket; tahsilat silinirse hareket de silinir.
+  paymentId   String?    @unique
+  // Virmanın iki ayağını birbirine bağlar.
+  transferId  String?
+  createdById String?
+  createdAt   DateTime   @default(now())
+
+  tenant  Tenant      @relation(fields: [tenantId], references: [id])
+  account CashAccount @relation(fields: [accountId], references: [id])
+  payment Payment?    @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, date])
+  @@index([accountId, date])
+  @@index([transferId])
+}
 
 // -------------------- Dijital Genel Kurul --------------------
 // Bağımsız bölümler henüz Apartment tablosunda değil (demo veriler mock),

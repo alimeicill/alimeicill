@@ -2,6 +2,7 @@ import 'server-only';
 import { DueStatus, PaymentMethod, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { D, ZERO, distribute, lateFee, minD, num, round2, type Money } from './money';
+import { CashError, postCollection } from './cash';
 
 type Tx = Prisma.TransactionClient;
 const OPEN: DueStatus[] = ['PENDING', 'PARTIAL', 'OVERDUE'];
@@ -199,34 +200,60 @@ function receiptNo() {
 export async function recordPayment(
   tenantId: string,
   dueId: string,
-  input: { amount: Money; method: PaymentMethod; paidAt: Date; notes?: string },
+  input: { amount: Money; method: PaymentMethod; paidAt: Date; notes?: string; accountId?: string | null; userId?: string },
 ): Promise<{ ok: true; applied: number } | { ok: false; error: string }> {
-  return prisma.$transaction(async (tx) => {
-    const due = await tx.due.findFirst({ where: { id: dueId, tenantId } });
-    if (!due) return { ok: false, error: 'Borç kaydı bulunamadı.' };
-    if (!OPEN.includes(due.status)) return { ok: false, error: 'Bu borç ödenmiş veya iptal edilmiş.' };
-    const remaining = D(due.amount).sub(due.paidAmount);
-    if (input.amount.gt(remaining)) {
-      const tl = num(remaining).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      return { ok: false, error: `Tahsilat kalan borçtan (${tl} ₺) fazla olamaz.` };
-    }
-    const applied = await applyToDue(tx, dueId, input.amount);
-    await tx.payment.create({
-      data: {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const due = await tx.due.findFirst({ where: { id: dueId, tenantId }, include: { apartment: { select: { number: true } } } });
+      if (!due) return { ok: false, error: 'Borç kaydı bulunamadı.' };
+      if (!OPEN.includes(due.status)) return { ok: false, error: 'Bu borç ödenmiş veya iptal edilmiş.' };
+      const remaining = D(due.amount).sub(due.paidAmount);
+      if (input.amount.gt(remaining)) {
+        const tl = num(remaining).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return { ok: false, error: `Tahsilat kalan borçtan (${tl} ₺) fazla olamaz.` };
+      }
+      const applied = await applyToDue(tx, dueId, input.amount);
+      const payment = await tx.payment.create({
+        data: {
+          tenantId,
+          dueId,
+          apartmentId: due.apartmentId,
+          amount: applied,
+          method: input.method,
+          status: 'COMPLETED',
+          receiptNo: receiptNo(),
+          paidAt: input.paidAt,
+          notes: input.notes || null,
+        },
+      });
+      // Tahsilat aynı işlemde kasaya / bankaya giriş olarak işlenir.
+      await postCollection(tx, {
         tenantId,
-        dueId,
-        apartmentId: due.apartmentId,
+        paymentId: payment.id,
         amount: applied,
+        date: input.paidAt,
         method: input.method,
-        status: 'COMPLETED',
-        receiptNo: receiptNo(),
-        paidAt: input.paidAt,
-        notes: input.notes || null,
-      },
+        accountId: input.accountId,
+        createdById: input.userId,
+        description: collectionText(due.apartment.number, due.period, due.description),
+      });
+      return { ok: true, applied: num(applied) };
     });
-    return { ok: true, applied: num(applied) };
-  });
+  } catch (err) {
+    if (err instanceof CashError) return { ok: false, error: err.message };
+    throw err;
+  }
 }
+
+const TR_MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+const periodText = (period: string) => {
+  const m = /^(\d{4})-(\d{2})$/.exec(period);
+  return m ? `${TR_MONTHS[Number(m[2]) - 1]} ${m[1]}` : period;
+};
+
+/** Kasa hareketi açıklaması: "Daire A-201 · Ekim 2026 Aidat" */
+export const collectionText = (unitNumber: string, period: string | null, description: string | null) =>
+  ['Daire ' + unitNumber, [period && periodText(period), description ?? 'Aidat'].filter(Boolean).join(' ')].join(' · ');
 
 /** Tahsilatı olmayan borç iptal edilebilir (kayıt silinmez, iz kalır). */
 export async function cancelDue(tenantId: string, dueId: string): Promise<'ok' | 'not-found' | 'has-payments'> {

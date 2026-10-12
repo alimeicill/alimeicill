@@ -2,21 +2,14 @@
 
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { mockUnits } from '@/lib/mock-data';
 
-export function OccupancyWidget() {
-  const stats = mockUnits.reduce(
-    (acc, unit) => {
-      acc[unit.status] = (acc[unit.status] || 0) + 1;
-      return acc;
-    },
-    { occupied: 0, vacant: 0, maintenance: 0 }
-  );
+export function OccupancyWidget({ units }: { units: { occupied: number; empty: number; renovation: number } }) {
+  const stats = { occupied: units.occupied, vacant: units.empty, maintenance: units.renovation };
 
   const data = [
     { name: 'Dolu', value: stats.occupied, color: '#10b981' }, // emerald-500
     { name: 'Boş', value: stats.vacant, color: '#64748b' }, // slate-500
-    { name: 'Bakım', value: stats.maintenance, color: '#f59e0b' }, // amber-500
+    { name: 'Tadilat', value: stats.maintenance, color: '#f59e0b' }, // amber-500
   ];
 
   const total = data.reduce((sum, item) => sum + item.value, 0);
@@ -57,7 +50,7 @@ export function OccupancyWidget() {
               iconSize={8}
               formatter={(value, entry: any) => (
                 <span className="text-xs font-medium text-[var(--text-secondary)]">
-                  {value}: {entry.payload.value} ({((entry.payload.value / total) * 100).toFixed(0)}%)
+                  {value}: {entry.payload.value} ({total > 0 ? ((entry.payload.value / total) * 100).toFixed(0) : 0}%)
                 </span>
               )}
             />

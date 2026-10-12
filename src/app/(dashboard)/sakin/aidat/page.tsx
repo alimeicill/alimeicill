@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Building2, Calendar, CheckCircle2, DollarSign, FileText, Info, Landmark, Printer, Wallet, X } from 'lucide-react';
+import { AlertTriangle, Building2, Calendar, Check, CheckCircle2, Copy, DollarSign, FileText, Info, Landmark, Printer, Wallet, X } from 'lucide-react';
 import { formatCurrency, formatPeriod } from '@/lib/utils';
 import { useCurrentUser } from '@/lib/auth/use-current-user';
 
@@ -31,9 +31,17 @@ interface InvoiceRow {
   payments: PaymentRow[];
 }
 
+interface PaymentAccount {
+  id: string;
+  bankName: string | null;
+  holderName: string | null;
+  iban: string;
+}
+
 interface SakinAidat {
   units: { id: string; label: string; isOwner: boolean }[];
   invoices: InvoiceRow[];
+  paymentAccounts: PaymentAccount[];
 }
 
 type ReceiptView = PaymentRow & { invoice: InvoiceRow };
@@ -66,6 +74,9 @@ export default function SakinAidatPage() {
   const feeSum = sumCents(open.map((i) => i.lateFee));
   const paidSum = sumCents(payments.map((p) => p.amount));
   const nextDue = open[0]?.dueDate;
+  const accounts = data?.paymentAccounts ?? [];
+  // Havale açıklaması: yönetim ödemeyi bu metinle daireye eşleştirir.
+  const transferNote = open[0] ? `${open[0].blockName} ${open[0].unitNumber}` : data?.units[0]?.label ?? '';
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -197,6 +208,8 @@ export default function SakinAidatPage() {
           </section>
         </div>
 
+        <div className="h-fit space-y-6">
+        <PaymentInfo accounts={accounts} transferNote={transferNote} />
         <aside className="glass h-fit space-y-3 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6 shadow-sm">
           <h3 className="flex items-center gap-2 text-sm font-bold text-[var(--text-primary)]">
             <Info className="h-4 w-4 text-indigo-500" /> Bilgilendirme
@@ -207,6 +220,7 @@ export default function SakinAidatPage() {
             <li>Borcunuzla ilgili bir hata olduğunu düşünüyorsanız “Arıza Bildirimi” üzerinden yönetime iletebilirsiniz.</li>
           </ul>
         </aside>
+        </div>
       </div>
 
       {showHowToPay && (
@@ -214,13 +228,22 @@ export default function SakinAidatPage() {
           <ol className="list-decimal space-y-2 pl-5 text-sm text-[var(--text-secondary)]">
             <li>Ödemenizi site yönetiminin banka hesabına havale / EFT ile yapın.</li>
             <li>
-              Açıklama alanına <strong className="text-[var(--text-primary)]">blok ve daire numaranızı</strong> yazın (örn. {open[0] ? `${open[0].blockName} ${open[0].unitNumber}` : 'A Blok A-101'}).
+              Açıklama alanına <strong className="text-[var(--text-primary)]">blok ve daire numaranızı</strong> yazın (örn. {transferNote || 'A Blok A-101'}).
             </li>
             <li>Yönetim ödemenizi kaydettiğinde borcunuz bu sayfada güncellenir ve makbuzunuz oluşur.</li>
           </ol>
-          <p className="mt-4 rounded-lg bg-[var(--bg-primary)] p-3 text-xs text-[var(--text-tertiary)]">
-            Banka hesap bilgileri için site yönetiminize başvurun. Online kartla ödeme henüz bu sitede etkin değildir.
-          </p>
+          <div className="mt-4">
+            {accounts.length > 0 ? (
+              <div className="space-y-3">
+                {accounts.map((a) => (
+                  <AccountCard key={a.id} account={a} />
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-lg bg-[var(--bg-primary)] p-3 text-xs text-[var(--text-tertiary)]">Banka hesap bilgileri için site yönetiminize başvurun.</p>
+            )}
+            <p className="mt-3 text-[11px] text-[var(--text-tertiary)]">Online kartla ödeme henüz bu sitede etkin değildir.</p>
+          </div>
         </Modal>
       )}
 
@@ -295,5 +318,72 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
         {children}
       </div>
     </div>
+  );
+}
+
+function PaymentInfo({ accounts, transferNote }: { accounts: PaymentAccount[]; transferNote: string }) {
+  return (
+    <section className="glass space-y-4 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6 shadow-sm">
+      <h3 className="flex items-center gap-2 text-sm font-bold text-[var(--text-primary)]">
+        <Landmark className="h-4 w-4 text-indigo-500" /> Ödeme Bilgileri
+      </h3>
+      {accounts.length === 0 ? (
+        <p className="text-xs text-[var(--text-secondary)]">Site yönetimi henüz banka hesabı paylaşmadı. Ödeme için yönetiminize başvurun.</p>
+      ) : (
+        <>
+          {accounts.map((a) => (
+            <AccountCard key={a.id} account={a} />
+          ))}
+          {transferNote && (
+            <div className="rounded-xl bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300">
+              <span className="block font-semibold">Havale açıklamasına yazın:</span>
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <strong className="font-mono">{transferNote}</strong>
+                <CopyButton text={transferNote} label="Açıklamayı kopyala" />
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function AccountCard({ account }: { account: PaymentAccount }) {
+  return (
+    <div className="space-y-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-3.5 text-xs">
+      <div className="flex justify-between gap-2">
+        <span className="text-[var(--text-tertiary)]">Banka</span>
+        <span className="text-right font-semibold text-[var(--text-primary)]">{account.bankName ?? '—'}</span>
+      </div>
+      {account.holderName && (
+        <div className="flex justify-between gap-2">
+          <span className="text-[var(--text-tertiary)]">Alıcı</span>
+          <span className="text-right font-semibold text-[var(--text-primary)]">{account.holderName}</span>
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-2 border-t border-[var(--border-color)] pt-2">
+        <span className="select-all break-all font-mono text-[12px] font-bold text-[var(--text-primary)]">{account.iban}</span>
+        <CopyButton text={account.iban.replace(/\s/g, '')} label="IBAN'ı kopyala" />
+      </div>
+    </div>
+  );
+}
+
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [done, setDone] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setDone(true);
+      setTimeout(() => setDone(false), 1500);
+    } catch {
+      // Pano izni yoksa metin seçilebilir durumda kalır.
+    }
+  };
+  return (
+    <button onClick={copy} title={label} aria-label={label} className="shrink-0 rounded-lg p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]">
+      {done ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
   );
 }

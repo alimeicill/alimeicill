@@ -15,12 +15,15 @@ interface StatCardsProps {
   stats: {
     totalProperties: number;
     occupancyRate: number;
+    monthCollected: number;
+    monthAccrued: number;
     collectionRate: number;
-    totalCollected: number;
     totalOutstanding: number;
     debtorCount: number;
     overdueAmount: number;
     netCash: number;
+    cash: number;
+    bank: number;
   };
 }
 
@@ -30,30 +33,30 @@ export function StatCards({ stats }: StatCardsProps) {
       id: 'kpi-1',
       title: 'Toplam Taşınmaz',
       value: `${stats.totalProperties} Daire`,
-      subtitle: `Doluluk Oranı: %${stats.occupancyRate}`,
+      subtitle: `Doluluk oranı: %${stats.occupancyRate}`,
       progress: stats.occupancyRate,
       color: 'blue'
     },
     {
       id: 'kpi-2',
-      title: 'Genel Tahsilat Durumu',
-      value: formatCurrency(stats.totalCollected),
-      subtitle: `Ödeme Oranı: %${stats.collectionRate}`,
+      title: 'Bu Ay Tahsilat',
+      value: formatCurrency(stats.monthCollected),
+      subtitle: stats.monthAccrued > 0 ? `Tahakkuk ${formatCurrency(stats.monthAccrued)} · %${stats.collectionRate}` : 'Bu ay için tahakkuk yok',
       progress: stats.collectionRate,
       color: 'green'
     },
     {
       id: 'kpi-3',
       title: 'Kalan Üye Borcu',
-      value: formatCurrency(stats.overdueAmount),
-      subtitle: `${stats.debtorCount} üyenin gecikmiş borcu`,
+      value: formatCurrency(stats.totalOutstanding),
+      subtitle: stats.debtorCount > 0 ? `${stats.debtorCount} dairenin borcu · ${formatCurrency(stats.overdueAmount)} gecikmiş` : 'Açık borç yok',
       color: 'red'
     },
     {
       id: 'kpi-4',
       title: 'Kasa / Banka Bakiyesi',
       value: formatCurrency(stats.netCash),
-      subtitle: 'Aktif net nakit varlığı',
+      subtitle: `Kasa ${formatCurrency(stats.cash)} · Banka ${formatCurrency(stats.bank)}`,
       color: 'indigo'
     }
   ];

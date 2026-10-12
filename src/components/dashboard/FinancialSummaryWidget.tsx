@@ -11,12 +11,10 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { mockMonthlyFinance } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/utils';
 
-export function FinancialSummaryWidget() {
-  // Take last 6 months for summary
-  const data = mockMonthlyFinance.slice(-6);
+/** Son aylar: kasa / banka girişleri (gelir) ve çıkışları (gider); virmanlar hariç. */
+export function FinancialSummaryWidget({ data }: { data: { month: string; revenue: number; expense: number }[] }) {
 
   const formatYAxis = (value: number) => {
     if (value >= 1000) {

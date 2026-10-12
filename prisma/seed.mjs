@@ -158,6 +158,55 @@ try {
     }
   }
 
+  // Kasa & banka: bir nakit kasa, sakinlere gösterilen bir banka hesabı (IBAN örnek, kontrol hanesi geçerli).
+  const ACCOUNTS = [
+    { id: 'acc-kasa', name: 'Yönetim Kasası', type: 'CASH', bankName: null, iban: null, holderName: 'Hasan Korkmaz', showToResidents: false },
+    { id: 'acc-banka', name: 'Aidat Hesabı', type: 'BANK', bankName: 'Garanti BBVA', iban: 'TR820006200000012345678901', holderName: 'Yıldız Konakları Site Yönetimi', showToResidents: true },
+  ];
+  for (const { id, ...a } of ACCOUNTS) {
+    await prisma.cashAccount.upsert({ where: { id }, create: { id, tenantId: t, ...a }, update: { ...a, isActive: true } });
+  }
+  const start = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - 3, 1));
+  const demoTx = [
+    { id: 'demo-open-kasa', accountId: 'acc-kasa', type: 'OPENING', amount: 2500, date: start, description: 'Açılış bakiyesi' },
+    { id: 'demo-open-banka', accountId: 'acc-banka', type: 'OPENING', amount: 40000, date: start, description: 'Açılış bakiyesi' },
+  ];
+  // Örnek giderler: son üç ay, ayın 20'si.
+  for (const back of [2, 1, 0]) {
+    const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 3 - back, 20));
+    if (d > new Date()) continue;
+    const key = d.toISOString().slice(0, 7);
+    demoTx.push(
+      { id: `demo-exp-asansor-${key}`, accountId: 'acc-banka', type: 'VENDOR_PAYMENT', amount: -2400, date: d, description: 'Asansör periyodik bakım' },
+      { id: `demo-exp-elektrik-${key}`, accountId: 'acc-banka', type: 'EXPENSE', amount: -3150, date: d, description: 'Ortak alan elektriği' },
+      { id: `demo-exp-temizlik-${key}`, accountId: 'acc-banka', type: 'VENDOR_PAYMENT', amount: -6000, date: d, description: 'Temizlik firması' },
+      { id: `demo-exp-kirtasiye-${key}`, accountId: 'acc-kasa', type: 'EXPENSE', amount: -350, date: d, description: 'Kırtasiye ve sarf malzemesi' },
+    );
+  }
+  for (const { id, ...x } of demoTx) {
+    await prisma.cashTransaction.upsert({ where: { id }, create: { id, tenantId: t, ...x }, update: x });
+  }
+  // Kasaya işlenmemiş tahsilatlar: nakit → kasa, diğerleri → banka.
+  const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+  const periodText = (k) => `${MONTHS[Number(k.slice(5, 7)) - 1]} ${k.slice(0, 4)}`;
+  const unposted = await prisma.payment.findMany({
+    where: { tenantId: t, cashTransaction: null },
+    include: { apartment: { select: { number: true } }, due: { select: { period: true, description: true } } },
+  });
+  for (const p of unposted) {
+    await prisma.cashTransaction.create({
+      data: {
+        tenantId: t,
+        accountId: p.method === 'CASH' ? 'acc-kasa' : 'acc-banka',
+        type: 'DUES_COLLECTION',
+        amount: p.amount,
+        date: p.paidAt,
+        description: `Daire ${p.apartment.number} · ${p.due ? `${periodText(p.due.period)} ${p.due.description ?? 'Aidat'}` : 'Avans'}`,
+        paymentId: p.id,
+      },
+    });
+  }
+
   console.log(`Demo hazır: ${demo.units.length} daire, ${LOGIN_USERS.length} giriş yapılabilir hesap (şifre bu dosyada).`);
 } finally {
   await prisma.$disconnect();

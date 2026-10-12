@@ -10,7 +10,7 @@
     "postinstall": "prisma generate",
     "db:seed": "node prisma/seed.mjs",
     "db": "node scripts/dev-db.mjs",
-    "test:e2e": "node tests/e2e/auth.test.mjs && node tests/e2e/units.test.mjs && node tests/e2e/dues.test.mjs && node tests/e2e/invite.test.mjs && node tests/e2e/cleanup.mjs && node prisma/seed.mjs"
+    "test:e2e": "node tests/e2e/auth.test.mjs && node tests/e2e/units.test.mjs && node tests/e2e/dues.test.mjs && node tests/e2e/invite.test.mjs && node tests/e2e/cash.test.mjs && node tests/e2e/cleanup.mjs && node prisma/seed.mjs"
   },
   "engines": {
     "node": ">=20.9.0"

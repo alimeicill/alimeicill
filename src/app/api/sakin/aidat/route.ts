@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUser } from '@/lib/auth/session';
 import { listInvoices } from '@/lib/server/dues';
+import { residentPaymentAccounts } from '@/lib/server/cash';
 
-/** Sakinin bağlı olduğu (malik veya kiracı) dairelerin borç ve ödemeleri. */
+/** Sakinin bağlı olduğu (malik veya kiracı) dairelerin borç ve ödemeleri, sitenin ödeme hesaplarıyla. */
 export async function GET() {
   const auth = await requireUser();
   if (auth instanceof NextResponse) return auth;
-  if (!auth.tenantId) return NextResponse.json({ units: [], invoices: [] });
+  if (!auth.tenantId) return NextResponse.json({ units: [], invoices: [], paymentAccounts: [] });
   const links = await prisma.apartmentUser.findMany({
     where: { userId: auth.id, apartment: { tenantId: auth.tenantId } },
     select: { isOwner: true, apartment: { select: { id: true, number: true, block: { select: { name: true } } } } },
@@ -19,5 +20,6 @@ export async function GET() {
   return NextResponse.json({
     units: links.map((l) => ({ id: l.apartment.id, label: `${l.apartment.block.name} / Daire ${l.apartment.number}`, isOwner: l.isOwner })),
     invoices,
+    paymentAccounts: await residentPaymentAccounts(auth.tenantId),
   });
 }

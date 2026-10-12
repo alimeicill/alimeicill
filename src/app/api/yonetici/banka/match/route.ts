@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { requireManager } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
-import { applyToDue } from '@/lib/server/dues';
+import { applyToDue, collectionText } from '@/lib/server/dues';
+import { postCollection } from '@/lib/server/cash';
 import { D } from '@/lib/server/money';
 import { ReconciliationEngine } from '@/lib/services/reconciliation-engine';
-import { BankMovementStatus, DueStatus, PaymentMethod, PaymentStatus } from '@prisma/client';
+import { BankMovementStatus, DueStatus, PaymentMethod, PaymentStatus, Prisma } from '@prisma/client';
 
 export async function POST(req: Request) {
   const auth = await requireManager();
@@ -90,7 +91,7 @@ export async function POST(req: Request) {
             const paymentApplied = await applyToDue(tx, oldestDue.id, D(movement.amount));
 
             // 2. Create Payment record
-            await tx.payment.create({
+            await createBankPayment(tx, {
               data: {
                 tenantId,
                 dueId: oldestDue.id,
@@ -105,7 +106,7 @@ export async function POST(req: Request) {
             });
           } else {
             // Eşleşen aidat borcu yoksa genel bir avans/tahsilat kaydı ekle
-            await tx.payment.create({
+            await createBankPayment(tx, {
               data: {
                 tenantId,
                 apartmentId: matchResult.matchedApartmentId!,
@@ -194,7 +195,7 @@ export async function PUT(req: Request) {
         if (due) {
           const paymentApplied = await applyToDue(tx, dueId, D(movement.amount));
 
-          await tx.payment.create({
+          await createBankPayment(tx, {
             data: {
               tenantId: movement.tenantId,
               dueId,
@@ -222,7 +223,7 @@ export async function PUT(req: Request) {
           targetDueId = oldestDue.id;
           const paymentApplied = await applyToDue(tx, oldestDue.id, D(movement.amount));
 
-          await tx.payment.create({
+          await createBankPayment(tx, {
             data: {
               tenantId: movement.tenantId,
               dueId: oldestDue.id,
@@ -236,7 +237,7 @@ export async function PUT(req: Request) {
             }
           });
         } else {
-          await tx.payment.create({
+          await createBankPayment(tx, {
             data: {
               tenantId: movement.tenantId,
               apartmentId,
@@ -275,4 +276,17 @@ export async function PUT(req: Request) {
     console.error('Manual match API error:', error);
     return NextResponse.json({ error: 'Manuel mutabakat işlemi sırasında hata oluştu.', details: error.message }, { status: 500 });
   }
+}
+
+/** Banka hareketinden doğan tahsilatı kaydeder ve sitenin banka hesabına giriş olarak işler. */
+async function createBankPayment(tx: Prisma.TransactionClient, args: { data: Prisma.PaymentUncheckedCreateInput }) {
+  const p = await tx.payment.create({ data: args.data, include: { apartment: { select: { number: true } }, due: { select: { period: true, description: true } } } });
+  await postCollection(tx, {
+    tenantId: p.tenantId,
+    paymentId: p.id,
+    amount: D(p.amount),
+    date: p.paidAt,
+    method: p.method,
+    description: p.due ? collectionText(p.apartment.number, p.due.period, p.due.description) : collectionText(p.apartment.number, null, 'Avans'),
+  });
 }

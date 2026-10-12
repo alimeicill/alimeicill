@@ -12,15 +12,17 @@ Kullanıcının kendi projesi **ApartmanYönet**'i satılabilir, “premium” b
 1. ✅ Gerçek giriş sistemi ve firma (tenant) ayrımı
 2. ✅ Daireler ve sakinler veritabanında, daire sahipliği, şifremi unuttum, sakin daveti
 3. ✅ Aidat modülü (tahakkuk, tahsilat, gecikme tazminatı, sakin borç sayfası)
-4. ⏭️ **Sıradaki: Kasa & Banka + pano** — tahsilatlar kasaya işlensin, sitenin IBAN'ı sakin sayfasında görünsün,
-   panodaki rakamlar (doluluk, tahsilat, borç) gerçek veriden gelsin
-5. Sonra kalan modüller (aşağıdaki liste), ardından online ödeme (iyzico/PayTR) ve canlıya alma
+4. ✅ Kasa & Banka + pano (tahsilatlar kasaya, IBAN sakin sayfasında, pano rakamları gerçek veriden)
+5. ⏭️ **Sıradaki öneri: Gelir-Gider + Raporlar** — bu iki sayfa hâlâ tarayıcıdaki eski kasa verisini okuyor
+   (`site_payment_accounts`); yeni `CashTransaction` tablosuna bağlanmalı. Sonra kalan modüller (aşağıdaki liste),
+   ardından online ödeme (iyzico/PayTR) ve canlıya alma
 
 ## Canlıya alma durumu (önemli)
 
 - Canlı adres: https://allime-apartmanynetimapp-jhluxh-bfc571-135-181-88-198.sslip.io/ (Dokploy, GitHub `main` dalından otomatik)
 - GitHub `origin/main` = `850e3c7`. **Şu commit'ler yalnızca yerelde, gönderilmedi:**
-  `a47a6d3` genel kurul DB · `c89e2ad` giriş sistemi · `d5d9240` daireler/sakinler · `e89b10c` davet · `8eeca88` aidat (+ bu notların commit'i)
+  `a47a6d3` genel kurul DB · `c89e2ad` giriş sistemi · `d5d9240` daireler/sakinler · `e89b10c` davet · `8eeca88` aidat ·
+  `376daff` notlar/testler · kasa & banka + pano commit'i
 - Gönderilmeden önce kullanıcının Dokploy'da yapması gerekenler (henüz “hazır” demedi):
   - PostgreSQL servisi oluşturup uygulamaya `DATABASE_URL` eklemek
   - `SESSION_SECRET` (en az 32 karakter rastgele): `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`
@@ -37,7 +39,8 @@ npm run db          # yerel PostgreSQL (localhost:54329, veriler ./.pgdata) — 
 npx prisma migrate deploy
 npm run db:seed     # demo site, 20 daire, kişiler, son 3 ayın aidatları
 npm run dev         # http://localhost:3000
-npm run test:e2e    # 100 uçtan uca test (dev sunucusu açıkken); sonunda temizlik + seed
+npm run test:e2e    # 140 uçtan uca test (dev sunucusu açıkken); sonunda temizlik + seed
+                    # Bir test dosyası düşerse temizlik çalışmaz → önce `node tests/e2e/cleanup.mjs && npm run db:seed`
 ```
 
 - `.env` (git'e girmez): `DATABASE_URL="postgresql://postgres:devpass@localhost:54329/siteyonet?schema=public"`
@@ -61,22 +64,36 @@ npm run test:e2e    # 100 uçtan uca test (dev sunucusu açıkken); sonunda temi
   KMK md.20 gecikme tazminatı), `mailer.ts`, `password-tokens.ts`.
 - **Para:** Due/Payment tutarları `Decimal(12,2)`. Float kullanılmaz. Ortak `applyToDue` / `revertFromDue`.
 - **Daire kimlikleri** örnek veriyle aynı (`unit-A101` …); `prisma/demo-data.json` örnek veriden üretildi.
+- **Kasa & Banka:** `src/lib/server/cash.ts` — `CashAccount` (CASH/BANK, IBAN, `showToResidents`) ve
+  `CashTransaction` (işaretli tutar: giriş +, çıkış −; bakiye = hareketlerin toplamı). Aidat tahsilatı
+  (`recordPayment`) ve banka eşleştirmesi (`banka/match`) aynı işlemde `postCollection` ile hesaba işlenir; hesap
+  seçilmezse nakit → ilk kasa, diğerleri → ilk banka (sakinlere açık olan önce), hiç yoksa otomatik açılır.
+  Tahsilat silinirse (`banka/match/undo`) hareket de silinir (`onDelete: Cascade`). Elle hareket: diğer gelir,
+  gider, firma/personel ödemesi, virman (iki ayak, `transferId`); çıkış bakiyeyi eksiye düşüremez; aidat
+  tahsilatından gelen hareket elle silinemez. IBAN TR + mod-97 kontrolüyle doğrulanır.
+  API: `/api/yonetici/kasa` (+ `[id]` PATCH, `[id]/ekstre`, `hareketler`, `hareketler/[id]` DELETE).
+  Sakin: `/api/sakin/aidat` → `paymentAccounts` (yalnızca banka adı, alıcı, IBAN; bakiye yok).
+- **Pano:** `src/lib/server/dashboard.ts` + `/api/yonetici/pano` — doluluk (daire durumu), bu ayın tahakkuk/tahsilatı,
+  kalan ve gecikmiş borç, borçlu daire sayısı, kasa/banka toplamı, son 6 ay gelir-gider (virman ve açılış hariç),
+  son 5 tahsilat.
 - **Genel kurul:** KMK md. 30/31/42/19/28/24 kuralları; sahiplik veritabanından; sakin yalnızca kendi dairesi adına oy.
 - **Kaldırılanlar (bilinçli):** sakin aidat sayfasındaki sahte kart ödeme formu (ödeme altyapısı yok), giriş
   ekranındaki sahte rol tespiti, gömülü SMTP şifresi, tanıtımdaki gerçek olmayan iddialar yok (SiteYönet tarafında).
 
 ## Hâlâ tarayıcı depolaması / örnek veri kullananlar (sıradaki işler)
 
-Tarayıcı (localStorage): yönetici → kasa-banka, gelir-gider, raporlar, banka-sync, cari, cari/faturalar,
+Tarayıcı (localStorage): yönetici → gelir-gider, raporlar (ikisi de eski `site_payment_accounts` verisini okuyor), banka-sync, cari, cari/faturalar,
 satinalma/alis-faturalari, duyurular, anketler, arizalar, sayaclar, sms, ayarlar · sakin → dashboard, ariza,
 duyurular, ziyaretci · personel → dashboard, gorevler, ziyaretci · super-admin → finans, tenantlar ·
 `lib/services/advanced-finance-service.ts`, `site-hesabim-service.ts`.
 
-Örnek veri (`@/lib/mock-data`): yönetici dashboard, daireler (yalnızca finans özeti/iletişim), gider, sayaclar, sms,
-duyurular, arizalar; pano bileşenleri (Announcements, FinancialSummary, Occupancy, RecentInvoices, TaskList);
+Örnek veri (`@/lib/mock-data`): daireler (yalnızca finans özeti/iletişim), gider, sayaclar, sms, duyurular, arizalar;
+yönetici panosunda kalan kutular (notlar/takvim, sakin mesajları, sistem duyuruları, sayaç grafiği, görevler, son
+duyurular — rakam kartları, grafikler ve doluluk artık gerçek veri);
 `Header.tsx` (arama); personel/gorevler, sakin/duyurular.
 
-Diğer eksikler: sitenin IBAN/banka hesabı tabloda yok; online ödeme yok; eski `/api/yonetici/dues/bulk` kullanılmıyor
+Diğer eksikler: banka eşleştirmesinde gelen tutar borçtan büyükse fazlası kayda geçmiyor (avans olarak işlenmeli);
+`Expense` tablosu (Float) henüz kullanılmıyor, giderler şimdilik kasa hareketi olarak tutuluyor; online ödeme yok; eski `/api/yonetici/dues/bulk` kullanılmıyor
 (yetkili ama gereksiz); `.claude/launch.json` git'e eklenmedi (yerel önizleme ayarı).
 
 ## Kullanıcı tercihleri
