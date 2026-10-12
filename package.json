@@ -8,7 +8,9 @@
     "start": "node scripts/migrate.mjs && next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
-    "db:seed": "node prisma/seed.mjs"
+    "db:seed": "node prisma/seed.mjs",
+    "db": "node scripts/dev-db.mjs",
+    "test:e2e": "node tests/e2e/auth.test.mjs && node tests/e2e/units.test.mjs && node tests/e2e/dues.test.mjs && node tests/e2e/invite.test.mjs && node tests/e2e/cleanup.mjs && node prisma/seed.mjs"
   },
   "engines": {
     "node": ">=20.9.0"
@@ -51,6 +53,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "embedded-postgres": "^17.5.0-beta.15",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
