@@ -166,6 +166,45 @@ function GirisForm() {
               {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
             </button>
 
+            {/* Hızlı Demo Girişi Butonları */}
+            <div className="pt-2 border-t border-[var(--border-color)] space-y-2.5">
+              <span className="block text-center text-xs font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                Tek Tıkla Demo Girişi
+              </span>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('admin@demo.apartmanyonet.com');
+                    setPassword('Demo2026!');
+                  }}
+                  className="px-2.5 py-2 text-xs font-bold rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 transition-colors text-center"
+                >
+                  👑 Süper Admin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('yonetici@demo.apartmanyonet.com');
+                    setPassword('Demo2026!');
+                  }}
+                  className="px-2.5 py-2 text-xs font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 transition-colors text-center"
+                >
+                  🏢 Yönetici
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('sakin@demo.apartmanyonet.com');
+                    setPassword('Demo2026!');
+                  }}
+                  className="px-2.5 py-2 text-xs font-bold rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 transition-colors text-center"
+                >
+                  👤 Sakin
+                </button>
+              </div>
+            </div>
+
             <p className="text-center text-sm text-[var(--text-secondary)]">
               Yönetim firması mısınız?{' '}
               <Link href="/kayit" className="font-semibold text-primary-600 hover:text-primary-700">
@@ -173,13 +212,6 @@ function GirisForm() {
               </Link>
             </p>
           </form>
-
-          {process.env.NODE_ENV !== 'production' && (
-            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4 text-xs text-[var(--text-secondary)]">
-              <strong>Geliştirme ortamı:</strong> demo hesapları <code>npm run db:seed</code> ile oluşturulur; e-posta ve şifreler{' '}
-              <code>prisma/seed.mjs</code> dosyasındadır.
-            </div>
-          )}
         </div>
       </div>
     </div>
